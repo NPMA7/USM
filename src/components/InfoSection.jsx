@@ -37,7 +37,7 @@ export default function InfoSection() {
           </div>
           <h3 className="text-xl font-semibold text-center mb-2">Peserta</h3>
           <p className="text-gray-600 text-center">
-            Terbuka untuk semua mahasiswa USM dengan maksimal 128 tim untuk setiap kategori turnamen.
+            Terbuka untuk semua penggemar game dengan maksimal 128 tim untuk setiap kategori turnamen.
           </p>
         </div>
       </div>

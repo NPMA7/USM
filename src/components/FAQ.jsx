@@ -23,7 +23,7 @@ export default function FAQ() {
   ];
 
   return (
-    <div id="faq" className="max-w-4xl mx-auto px-4 py-16 bg-white ">
+    <div id="faq" className="max-w-4xl mx-auto px-4 py-16 bg-white rounded-4xl">
       <h2 className="text-3xl font-bold text-center mb-8">Pertanyaan yang Sering Diajukan (FAQ)</h2>
       <div className="space-y-4">
         {faqs.map((faq, index) => (

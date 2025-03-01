@@ -10,7 +10,7 @@ export default function WarningBanner() {
         <div className="ml-3">
           <h3 className="text-red-600 font-bold text-lg">PERHATIAN</h3>
           <p className="text-red-600 mt-1">
-            Invoice ini akan hilang jika halaman di-refresh. Harap segera download invoice ini.
+            Invoice ini akan hilang jika halaman di-refresh. Harap segera download invoice ini. Invoice hanya dapat dilihat selama 10 menit setelah dibuat.
           </p>
         </div>
       </div>

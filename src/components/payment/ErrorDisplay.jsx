@@ -9,12 +9,11 @@ export default function ErrorDisplay({ error }) {
   
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-gray-100 to-gray-300 p-6">
-      <div className="bg-white shadow-xl rounded-xl p-8 w-full max-w-lg border border-gray-300">
+   <div className="bg-white shadow-xl rounded-xl p-8 w-full max-w-lg border border-gray-300">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-red-600 mb-4">Error</h1>
-          <p className="text-gray-700 mb-4">{error}</p>
-          <p className="mt-2 text-red-500 font-medium">
-            Invoice untuk order ini telah menghilang.
+          <p className="text-gray-700 mb-4">
+            Invoice untuk order ini telah menghilang. Harap diperhatikan bahwa invoice hanya dapat dilihat selama 10 menit setelah dibuat.
           </p>
           
           <div className="bg-green-50 p-4 rounded-lg my-4">

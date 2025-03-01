@@ -1,4 +1,4 @@
-export default function ConfirmationModal({ onConfirm, onDismiss }) {
+export default function ConfirmationModal({ onConfirm, onDismiss, isLoading = false, isLoadingDismiss = false }) {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-xl shadow-2xl p-8 max-w-md w-full">
@@ -9,15 +9,31 @@ export default function ConfirmationModal({ onConfirm, onDismiss }) {
         <div className="flex justify-between gap-4">
           <button
             onClick={onConfirm}
-            className="flex-1 bg-red-500 text-white py-2 px-4 rounded font-semibold hover:bg-red-600 transition duration-300"
+            disabled={isLoading || isLoadingDismiss}
+            className={`flex-1 ${(isLoading || isLoadingDismiss) ? 'bg-red-300 cursor-not-allowed' : 'bg-red-500 hover:bg-red-600'} text-white py-2 px-4 rounded font-semibold transition duration-300 flex items-center justify-center`}
           >
-            Ya, Batalkan
+            {isLoading ? (
+              <div className="flex items-center justify-center">
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                Memproses...
+              </div>
+            ) : (
+              "Ya, Batalkan"
+            )}
           </button>
           <button
             onClick={onDismiss}
-            className="flex-1 bg-blue-500 text-white py-2 px-4 rounded font-semibold hover:bg-blue-600 transition duration-300"
+            disabled={isLoading || isLoadingDismiss}
+            className={`flex-1 ${(isLoading || isLoadingDismiss) ? 'bg-blue-300 cursor-not-allowed' : 'bg-blue-500 hover:bg-blue-600'} text-white py-2 px-4 rounded font-semibold transition duration-300 flex items-center justify-center`}
           >
-            Tidak, Lanjutkan
+            {isLoadingDismiss ? (
+              <div className="flex items-center justify-center">
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                Memproses...
+              </div>
+            ) : (
+              "Tidak, Lanjutkan"
+            )}
           </button>
         </div>
       </div>

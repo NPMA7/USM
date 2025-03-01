@@ -1,5 +1,5 @@
 'use client'
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import TournamentCard from "@/components/TournamentCard";
 import RegistrationForm from "@/components/RegistrationForm";
 import ConfirmationModal from "@/components/ConfirmationModal";
@@ -8,6 +8,7 @@ import useMidtrans from "@/hooks/useMidtrans";
 import Image from "next/image";
 import FAQ from "@/components/FAQ";
 import InfoSection from "@/components/InfoSection";
+import { supabase } from "@/lib/supabase"; // Mengimpor supabase dari lib
 
 export default function Home() {
   const { snapLoaded } = useMidtrans();
@@ -26,6 +27,17 @@ export default function Home() {
   const [orderId, setOrderId] = useState(null);
   const [processingPayment, setProcessingPayment] = useState(false);
   const [preparingInvoice, setPreparingInvoice] = useState(false);
+  const [registeredTeams, setRegisteredTeams] = useState({
+    MobileLegend: 0,
+    FreeFire: 0,
+  });
+  const totalTeams = 128; // Total tim yang bisa mendaftar
+  const [isLoadingTeams, setIsLoadingTeams] = useState(true);
+  const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+  const [isLoadingDismiss, setIsLoadingDismiss] = useState(false);
+  const [isCancelLoading, setIsCancelLoading] = useState(false);
+  const [whatsappError, setWhatsappError] = useState("");
+  const [emailError, setEmailError] = useState("");
 
   const handleTournamentSelect = (tournamentType) => {
     setTournament(tournamentType);
@@ -33,11 +45,61 @@ export default function Home() {
     setShowForm(true);
   };
 
+  // Fungsi untuk memeriksa ketersediaan nomor WhatsApp
+  const checkWhatsappAvailability = async (number) => {
+    try {
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('*')
+        .eq('whatsapp', number)
+        .eq('tournament', tournament);
+      
+      if (error) {
+        console.error('Error checking WhatsApp availability:', error);
+        return;
+      }
+      
+      if (data && data.length > 0) {
+        setWhatsappError("Nomor WhatsApp ini sudah terdaftar untuk turnamen ini");
+      } else {
+        setWhatsappError("");
+      }
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  };
+
+  // Fungsi untuk memeriksa ketersediaan email
+  const checkEmailAvailability = async (emailAddress) => {
+    try {
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('*')
+        .eq('email', emailAddress)
+        .eq('tournament', tournament);
+      
+      if (error) {
+        console.error('Error checking email availability:', error);
+        return;
+      }
+      
+      if (data && data.length > 0) {
+        setEmailError("Email ini sudah terdaftar untuk turnamen ini");
+      } else {
+        setEmailError("");
+      }
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  };
+
   const isFormValid = () => {
     return name.trim() !== "" && 
            email.trim() !== "" && 
            whatsapp.trim() !== "" && 
-           teamName.trim() !== "";
+           teamName.trim() !== "" &&
+           !whatsappError &&
+           !emailError;
   };
 
   const openSnapPopup = (token) => {
@@ -46,9 +108,9 @@ export default function Home() {
       setProcessingPayment(false);
       return;
     }
-
+  
     if (!window.snap) {
-      alert("Midtrans belum siap, silakan coba lagi.");
+      alert('Midtrans belum siap, silakan coba lagi.');
       setIsLoading(false);
       setProcessingPayment(false);
       return;
@@ -60,29 +122,49 @@ export default function Home() {
         setPreparingInvoice(true);
         
         try {
-          await fetch("/api/save-transaction", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              order_id: result.order_id,
-              status_code: result.status_code,
-              transaction_status: result.transaction_status,
-              gross_amount: result.gross_amount,
-              payment_type: result.payment_type,
-              fraud_status: result.fraud_status,
-              transaction_time: result.transaction_time,
-              name,
-              email,
-              whatsapp,
-              tournament,
-              teamName,
-            }),
-          });
+          // Simpan ke Supabase dengan waktu saat ini
+          const currentTime = new Date();
+          currentTime.setHours(currentTime.getHours() + 7); // Menambahkan 7 jam untuk waktu Indonesia
+          const formattedTime = currentTime.toISOString().slice(0, 19).replace('T', ' '); // Format menjadi YYYY-MM-DD HH:MM:SS
+          const { data, error } = await supabase
+            .from('transactions')
+            .insert([
+              {
+                order_id: result.order_id,
+                status_code: result.status_code,
+                transaction_status: result.transaction_status,
+                gross_amount: result.gross_amount,
+                payment_type: result.payment_type,
+                fraud_status: result.fraud_status,
+                transaction_time: result.transaction_time,
+                name,
+                email,
+                whatsapp,
+                tournament,
+                team_name: teamName,
+                created_at: formattedTime,
+              }
+            ])
+            .select('*');
 
-          window.location.href = `/payment-success?order_id=${result.order_id}`;
+          if (error) {
+            console.error('Error inserting into Supabase:', error);
+            alert('Terjadi kesalahan saat menyimpan transaksi ke database.');
+            setPreparingInvoice(false);
+          } else {
+            // Tambahkan jumlah tim hanya setelah transaksi berhasil
+            setRegisteredTeams(prev => ({
+              ...prev,
+              [tournament]: prev[tournament] + 1,
+            }));
+            
+            // Tambahkan parameter waktu ke URL untuk memastikan konsistensi
+            window.location.href = `/payment-success?order_id=${result.order_id}`;
+          }
         } catch (error) {
+          console.error('Error in transaction processing:', error);
           setPreparingInvoice(false);
-          alert("Terjadi kesalahan saat menyiapkan invoice. Silakan coba lagi.");
+          alert('Terjadi kesalahan saat menyiapkan invoice. Silakan coba lagi.');
         }
       },
       onPending: function (result) {
@@ -90,7 +172,7 @@ export default function Home() {
         setIsLoading(false);
       },
       onError: function (result) {
-        alert("Pembayaran gagal.");
+        alert('Pembayaran gagal.');
         setIsLoading(false);
         setProcessingPayment(false);
       },
@@ -110,7 +192,7 @@ export default function Home() {
       alert("Mohon lengkapi semua data terlebih dahulu.");
       return;
     }
-
+    
     setIsLoading(true);
     setProcessingPayment(true);
     const newOrderId = `ORDER-${Date.now()}`;
@@ -155,6 +237,8 @@ export default function Home() {
 
   const handleCancelConfirm = async () => {
     if (orderId) {
+      setIsCancelLoading(true);
+      
       try {
         const response = await fetch("/api/cancel-transaction", {
           method: "POST",
@@ -175,6 +259,7 @@ export default function Home() {
           setShowForm(false);
           setProcessingPayment(false);
         } else {
+          setSuccessMessage("Transaksi gagal dibatalkan");
           setShowSuccessModal(true);
           setProcessingPayment(false);
         }
@@ -183,25 +268,96 @@ export default function Home() {
         setSuccessMessage("Error saat membatalkan transaksi");
         setShowSuccessModal(true);
         setProcessingPayment(false);
+      } finally {
+        setIsCancelLoading(false);
+        setShowCancelModal(false);
+        setIsLoading(false);
       }
+    } else {
+      setShowCancelModal(false);
+      setIsLoading(false);
     }
-    
-    setShowCancelModal(false);
-    setIsLoading(false);
   };
 
   const handleCancelDismiss = () => {
-    setShowCancelModal(false);
-    if (snapToken) {
-      openSnapPopup(snapToken);
-    } else {
-      setIsLoading(false);
-      setProcessingPayment(false);
-    }
+    setIsLoadingDismiss(true);
+    
+    setTimeout(() => {
+      setShowCancelModal(false);
+      
+      if (snapToken) {
+        openSnapPopup(snapToken);
+      } else {
+        setIsLoading(false);
+        setProcessingPayment(false);
+      }
+      
+      setIsLoadingDismiss(false);
+    }, 500);
   };
 
   const closeSuccessModal = () => {
     setShowSuccessModal(false);
+  };
+
+  // Fungsi untuk menangani pembatalan pembayaran
+  const handleCancelPayment = async () => {
+    // Logika pembatalan pembayaran
+    // ...
+    setShowConfirmationModal(false);
+  };
+
+  // Mengambil data jumlah tim terdaftar dari Supabase saat komponen dimuat
+  useEffect(() => {
+    const fetchRegisteredTeams = async () => {
+      setIsLoadingTeams(true); // Set loading menjadi true saat mulai fetch
+      try {
+        // Ambil jumlah tim Mobile Legend
+        const { count: mlCount, error: mlError } = await supabase
+          .from('transactions')
+          .select('*', { count: 'exact' })
+          .eq('tournament', 'MobileLegend');
+        
+        // Ambil jumlah tim Free Fire
+        const { count: ffCount, error: ffError } = await supabase
+          .from('transactions')
+          .select('*', { count: 'exact' })
+          .eq('tournament', 'FreeFire');
+        
+        if (mlError || ffError) {
+          console.error('Error mengambil data tim:', mlError || ffError);
+          return;
+        }
+        
+        // Update state dengan jumlah tim dari database
+        setRegisteredTeams({
+          MobileLegend: mlCount || 0,
+          FreeFire: ffCount || 0
+        });
+      } catch (error) {
+        console.error('Error:', error);
+      } finally {
+        setIsLoadingTeams(false); // Set loading menjadi false setelah selesai
+      }
+    };
+    
+    fetchRegisteredTeams();
+  }, []);
+
+  // Tambahkan fungsi resetForm
+  const resetForm = () => {
+    setName("");
+    setEmail("");
+    setWhatsapp("");
+    setTeamName("");
+    setWhatsappError("");
+    setEmailError("");
+  };
+
+  // Perbarui fungsi untuk menutup form
+  const handleCloseForm = () => {
+    resetForm();
+    setShowForm(false);
   };
 
   return (
@@ -261,6 +417,8 @@ export default function Home() {
               onSelect={handleTournamentSelect}
               type="MobileLegend"
               description="Turnamen 5v5 MOBA terpopuler dengan format Best of 3 untuk babak penyisihan dan Best of 5 untuk grand final."
+              registeredTeams={registeredTeams.MobileLegend}
+              isLoading={isLoadingTeams}
             />
             
             <TournamentCard 
@@ -270,6 +428,8 @@ export default function Home() {
               onSelect={handleTournamentSelect}
               type="FreeFire"
               description="Turnamen battle royale dengan 4 orang per tim. Poin dihitung berdasarkan peringkat dan jumlah kill."
+              registeredTeams={registeredTeams.FreeFire}
+              isLoading={isLoadingTeams}
             />
           </div>
         </div>
@@ -314,7 +474,11 @@ export default function Home() {
           isLoading={isLoading}
           processingPayment={processingPayment}
           preparingInvoice={preparingInvoice}
-          onClose={() => setShowForm(false)}
+          onClose={handleCloseForm}
+          whatsappError={whatsappError}
+          checkWhatsappAvailability={checkWhatsappAvailability}
+          emailError={emailError}
+          checkEmailAvailability={checkEmailAvailability}
         />
       )}
 
@@ -322,6 +486,8 @@ export default function Home() {
         <ConfirmationModal 
           onConfirm={handleCancelConfirm}
           onDismiss={handleCancelDismiss}
+          isLoading={isCancelLoading}
+          isLoadingDismiss={isLoadingDismiss}
         />
       )}
 
@@ -331,6 +497,16 @@ export default function Home() {
           onClose={closeSuccessModal}
         />
       )}
+
+      {showConfirmationModal && (
+        <ConfirmationModal
+          onConfirm={handleCancelPayment}
+          onDismiss={() => setShowConfirmationModal(false)}
+          isLoading={isLoading}
+          isLoadingDismiss={false}
+        />
+      )}
+
     </div>
   );
 }

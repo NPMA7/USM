@@ -23,9 +23,18 @@ export default function Navbar() {
   };
 
   const smoothScroll = (targetId) => {
-    const targetElement = document.getElementById(targetId);
-    if (targetElement) {
-      targetElement.scrollIntoView({ behavior: 'smooth' });
+    // Cek apakah kita berada di halaman beranda
+    const isHomePage = window.location.pathname === '/' || window.location.pathname === '';
+    
+    if (isHomePage) {
+      // Jika di beranda, lakukan smooth scroll ke elemen
+      const targetElement = document.getElementById(targetId);
+      if (targetElement) {
+        targetElement.scrollIntoView({ behavior: 'smooth' });
+      }
+    } else {
+      // Jika bukan di beranda, arahkan ke beranda dengan anchor
+      window.location.href = `/#${targetId}`;
     }
   };
 
@@ -92,15 +101,19 @@ export default function Navbar() {
         </div>
 
         {isOpen && (
-          <div className="absolute top-16 left-0 right-0 bg-blue-900 text-white">
-            <a 
-              href="#"
+          <div className={`absolute border-t-2 border-double left-0 text-center right-0 bg-blue-900 text-white ${
+            scrolled 
+              ? 'top-11' 
+              : 'top-16'
+          }`}> 
+          <a
+              href="/"
               onClick={(e) => {
                 e.preventDefault();
                 smoothScroll('home');
                 setIsOpen(false);
               }}
-              className="block px-4 py-2"
+              className="block px-4 py-2 hover:bg-blue-700 transition-colors"
             >
               Home
             </a>
@@ -111,7 +124,7 @@ export default function Navbar() {
                 smoothScroll('info');
                 setIsOpen(false);
               }}
-              className="block px-4 py-2"
+              className="block px-4 py-2 border-t-1 border-gray-500 border-dashed hover:bg-blue-700 transition-colors"
             >
               Info
             </a>
@@ -122,7 +135,7 @@ export default function Navbar() {
                 smoothScroll('tournaments');
                 setIsOpen(false);
               }}
-              className="block px-4 py-2"
+              className="block px-4 py-2 border-y-1 border-gray-500 border-dashed hover:bg-blue-700 transition-colors"
             >
               Turnamen
             </a>
@@ -133,7 +146,7 @@ export default function Navbar() {
                 smoothScroll('faq');
                 setIsOpen(false);
               }}
-              className="block px-4 py-2"
+              className="block px-4 py-2 border-b-1 border-dashed hover:bg-blue-700 transition-colors"
             >
               FAQ
             </a>

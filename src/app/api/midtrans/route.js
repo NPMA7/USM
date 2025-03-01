@@ -33,7 +33,9 @@ export async function POST(req) {
           quantity: 1,
           name: teamName,
         },
-    ]};
+      ],
+      team_name: teamName, // Menyimpan nama tim
+    };
 
     // Buat transaksi di Midtrans
     const transaction = await snap.createTransaction(parameter);

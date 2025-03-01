@@ -9,7 +9,7 @@ export default function LoadingState() {
             PERHATIAN
           </p>
           <p className="mt-2 text-red-500 font-medium">
-            Invoice ini akan hilang jika halaman di-refresh. Harap segera download invoice ini.
+            Invoice ini hanya dapat dilihat selama 10 menit setelah dibuat. Harap segera download invoice ini.
           </p>
         </div>
       </div>
