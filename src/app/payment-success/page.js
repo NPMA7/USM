@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState, Suspense } from "react";
 import domtoimage from "dom-to-image";
 
 import ErrorDisplay from "@/components/payment/ErrorDisplay";
@@ -9,7 +9,7 @@ import LoadingState from "@/components/payment/LoadingState";
 import WarningBanner from "@/components/payment/WarningBanner";
 import Invoice from "@/components/payment/Invoice";
 
-export default function PaymentSuccess() {
+function PaymentSuccessContent() {
   const params = useSearchParams();
   const invoiceRef = useRef(null);
   
@@ -67,5 +67,13 @@ export default function PaymentSuccess() {
         downloadInvoice={downloadInvoice} 
       />
     </div>
+  );
+}
+
+export default function PaymentSuccess() {
+  return (
+    <Suspense fallback={<LoadingState />}>
+      <PaymentSuccessContent />
+    </Suspense>
   );
 }
