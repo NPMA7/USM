@@ -5,6 +5,9 @@ import RegistrationForm from "@/components/RegistrationForm";
 import ConfirmationModal from "@/components/ConfirmationModal";
 import SuccessModal from "@/components/SuccessModal";
 import useMidtrans from "@/hooks/useMidtrans";
+import Image from "next/image";
+import FAQ from "@/components/FAQ";
+import InfoSection from "@/components/InfoSection";
 
 export default function Home() {
   const { snapLoaded } = useMidtrans();
@@ -202,64 +205,132 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-100 to-white p-8">
-      <div className="max-w-4xl mx-auto">
-        <h1 className="text-4xl font-bold text-center text-blue-800 mb-8">Turnamen Gaming USM</h1>
-        <p className="text-center text-gray-600 mb-12">Pilih turnamen yang ingin kamu ikuti dan mulai perjalananmu!</p>
-
-        <div className="grid md:grid-cols-2 gap-8">
-          <TournamentCard 
-            title="Mobile Legends" 
-            price={35000} 
-            image="https://i.pinimg.com/originals/ec/fe/91/ecfe91596fffa8eefc1860de6b8d92bd.jpg" 
-            onSelect={handleTournamentSelect}
-            type="MobileLegend"
-          />
-          
-          <TournamentCard 
-            title="Free Fire" 
-            price={25000} 
-            image="https://wallpapers.com/images/hd/free-fire-banner-with-complete-cast-5vfv6tj9bc7x37rw.jpg" 
-            onSelect={handleTournamentSelect}
-            type="FreeFire"
+    <div className="min-h-screen bg-gradient-to-b from-blue-900 via-blue-700 to-blue-500">
+      {/* Hero Section */}
+      <div id="home" className="relative h-[100vh] flex items-center justify-center overflow-hidden pt-16 bg-blue-800">
+        <div className="absolute inset-0 bg-black opacity-50 z-10"></div>
+        <div className="absolute inset-0 z-0">
+          <Image 
+            src="/images/gaming-banner.webp" 
+            alt="Gaming Tournament Banner"
+            layout="fill"
+            objectFit="cover"
+            priority
           />
         </div>
-
-        {showForm && (
-          <RegistrationForm 
-            tournament={tournament}
-            amount={amount}
-            name={name}
-            setName={setName}
-            email={email}
-            setEmail={setEmail}
-            whatsapp={whatsapp}
-            setWhatsapp={setWhatsapp}
-            teamName={teamName}
-            setTeamName={setTeamName}
-            handlePayment={handlePayment}
-            isFormValid={isFormValid}
-            isLoading={isLoading}
-            processingPayment={processingPayment}
-            preparingInvoice={preparingInvoice}
-            onClose={() => setShowForm(false)}
-          />
-        )}
-
-        {showCancelModal && (
-          <ConfirmationModal 
-            onConfirm={handleCancelConfirm}
-            onDismiss={handleCancelDismiss}
-          />
-        )}
-
-        {showSuccessModal && (
-          <SuccessModal 
-            message={successMessage}
-            onClose={closeSuccessModal}
-          />
-        )}
+        <div className="relative z-20 text-center px-4">
+          <h1 className="text-5xl md:text-6xl font-extrabold text-white mb-4 drop-shadow-lg">
+            TURNAMEN GAMING <span className="text-yellow-400">USM</span>
+          </h1>
+          <p className="text-xl text-white mb-8 max-w-2xl mx-auto drop-shadow-md">
+            Tunjukkan kemampuanmu dan jadilah juara dalam turnamen gaming terbesar di USM!
+          </p>
+          <div className="flex flex-wrap justify-center gap-4">
+            <button 
+              onClick={() => document.getElementById('tournaments').scrollIntoView({ behavior: 'smooth' })}
+              className="px-8 py-3 bg-yellow-500 text-blue-900 font-bold rounded-full hover:bg-yellow-400 transition-all duration-300 transform hover:scale-105"
+            >
+              Daftar Sekarang
+            </button>
+            <button 
+              onClick={() => document.getElementById('info').scrollIntoView({ behavior: 'smooth' })}
+              className="px-8 py-3 bg-transparent border-2 border-white text-white font-bold rounded-full hover:bg-white hover:text-blue-900 transition-all duration-300"
+            >
+              Info Turnamen
+            </button>
+          </div>
+        </div>
       </div>
+
+      {/* Info Section */}
+      <InfoSection />
+
+      {/* Tournament Section */}
+      <div id="tournaments" className="py-16 bg-gray-200">
+        <div className="max-w-6xl mx-auto px-4">
+          <h2 className="text-3xl font-bold text-center text-blue-900 mb-4">Pilih Turnamen</h2>
+          <p className="text-center text-gray-600 mb-12 max-w-2xl mx-auto">
+            Pilih turnamen yang ingin kamu ikuti dan mulai perjalananmu menuju kemenangan!
+          </p>
+
+          <div className="grid md:grid-cols-2 gap-8">
+            <TournamentCard 
+              title="Mobile Legends" 
+              price={35000} 
+              image="https://i.pinimg.com/originals/ec/fe/91/ecfe91596fffa8eefc1860de6b8d92bd.jpg" 
+              onSelect={handleTournamentSelect}
+              type="MobileLegend"
+              description="Turnamen 5v5 MOBA terpopuler dengan format Best of 3 untuk babak penyisihan dan Best of 5 untuk grand final."
+            />
+            
+            <TournamentCard 
+              title="Free Fire" 
+              price={25000} 
+              image="https://wallpapers.com/images/hd/free-fire-banner-with-complete-cast-5vfv6tj9bc7x37rw.jpg" 
+              onSelect={handleTournamentSelect}
+              type="FreeFire"
+              description="Turnamen battle royale dengan 4 orang per tim. Poin dihitung berdasarkan peringkat dan jumlah kill."
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* FAQ Section */}
+      <div className="py-16 bg-gray-100">
+        <FAQ />
+      </div>
+
+      {/* CTA Section */}
+      <div className="py-16 bg-blue-900 text-white">
+        <div className="max-w-4xl mx-auto px-4 text-center">
+          <h2 className="text-3xl font-bold mb-4">Siap Untuk Bertanding?</h2>
+          <p className="mb-8 text-blue-200">
+            Jangan lewatkan kesempatan untuk menunjukkan skill gaming terbaikmu dan menangkan hadiah menarik!
+          </p>
+          <button 
+            onClick={() => document.getElementById('tournaments').scrollIntoView({ behavior: 'smooth' })}
+            className="px-8 py-3 bg-yellow-500 text-blue-900 font-bold rounded-full hover:bg-yellow-400 transition-all duration-300 transform hover:scale-105"
+          >
+            Daftar Sekarang
+          </button>
+        </div>
+      </div>
+
+      {/* Modals */}
+      {showForm && (
+        <RegistrationForm 
+          tournament={tournament}
+          amount={amount}
+          name={name}
+          setName={setName}
+          email={email}
+          setEmail={setEmail}
+          whatsapp={whatsapp}
+          setWhatsapp={setWhatsapp}
+          teamName={teamName}
+          setTeamName={setTeamName}
+          handlePayment={handlePayment}
+          isFormValid={isFormValid}
+          isLoading={isLoading}
+          processingPayment={processingPayment}
+          preparingInvoice={preparingInvoice}
+          onClose={() => setShowForm(false)}
+        />
+      )}
+
+      {showCancelModal && (
+        <ConfirmationModal 
+          onConfirm={handleCancelConfirm}
+          onDismiss={handleCancelDismiss}
+        />
+      )}
+
+      {showSuccessModal && (
+        <SuccessModal 
+          message={successMessage}
+          onClose={closeSuccessModal}
+        />
+      )}
     </div>
   );
 }
