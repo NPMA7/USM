@@ -13,7 +13,7 @@ export default function InfoSection() {
           </div>
           <h3 className="text-xl font-semibold text-center mb-2">Jadwal</h3>
           <p className="text-gray-600 text-center">
-            Turnamen akan berlangsung pada tanggal 15-20 November 2023. Pendaftaran ditutup 3 hari sebelum turnamen dimulai.
+            Turnamen akan berlangsung pada bulan Maret. Pendaftaran ditutup 3 hari sebelum turnamen dimulai.
           </p>
         </div>
         
@@ -37,7 +37,7 @@ export default function InfoSection() {
           </div>
           <h3 className="text-xl font-semibold text-center mb-2">Peserta</h3>
           <p className="text-gray-600 text-center">
-            Terbuka untuk semua mahasiswa USM dengan maksimal 32 tim untuk setiap kategori turnamen.
+            Terbuka untuk semua mahasiswa USM dengan maksimal 128 tim untuk setiap kategori turnamen.
           </p>
         </div>
       </div>

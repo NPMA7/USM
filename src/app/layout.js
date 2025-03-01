@@ -17,7 +17,6 @@ const geistMono = Geist_Mono({
 export const metadata = {
   title: "Turnamen Gaming USM",
   description: "Ikuti turnamen gaming terbesar di USM dan tunjukkan kemampuanmu!",
-  icons: "/favicon.ico",
 };
 
 export default function RootLayout({ children }) {

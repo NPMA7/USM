@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
   
   useEffect(() => {
     const handleScroll = () => {
@@ -82,6 +83,63 @@ export default function Navbar() {
           </a>
         </div>
         
+        <div className="md:hidden">
+          <button onClick={() => setIsOpen(!isOpen)} className="focus:outline-none">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" />
+            </svg>
+          </button>
+        </div>
+
+        {isOpen && (
+          <div className="absolute top-16 left-0 right-0 bg-blue-900 text-white">
+            <a 
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                smoothScroll('home');
+                setIsOpen(false);
+              }}
+              className="block px-4 py-2"
+            >
+              Home
+            </a>
+            <a 
+              href="#info" 
+              onClick={(e) => {
+                e.preventDefault();
+                smoothScroll('info');
+                setIsOpen(false);
+              }}
+              className="block px-4 py-2"
+            >
+              Info
+            </a>
+            <a 
+              href="#tournaments" 
+              onClick={(e) => {
+                e.preventDefault();
+                smoothScroll('tournaments');
+                setIsOpen(false);
+              }}
+              className="block px-4 py-2"
+            >
+              Turnamen
+            </a>
+            <a 
+              href="#faq" 
+              onClick={(e) => {
+                e.preventDefault();
+                smoothScroll('faq');
+                setIsOpen(false);
+              }}
+              className="block px-4 py-2"
+            >
+              FAQ
+            </a>
+          </div>
+        )}
+<div className='block max-md:hidden'>
         <button 
           onClick={handleChatCS}
           className="flex items-center bg-green-600 hover:bg-green-700 px-3 py-1.5 rounded-lg transition-colors duration-300"
@@ -98,6 +156,8 @@ export default function Navbar() {
           </svg>
           Hubungi Kami
         </button>
+</div>
+ 
       </div>
     </nav>
   );
