@@ -9,6 +9,7 @@ import Image from "next/image";
 import FAQ from "@/components/FAQ";
 import InfoSection from "@/components/InfoSection";
 import { supabase } from "@/lib/supabase"; // Mengimpor supabase dari lib
+import { useTeams } from "@/context/TeamContext";
 
 export default function Home() {
   const { snapLoaded } = useMidtrans();
@@ -38,6 +39,7 @@ export default function Home() {
   const [isCancelLoading, setIsCancelLoading] = useState(false);
   const [whatsappError, setWhatsappError] = useState("");
   const [emailError, setEmailError] = useState("");
+  const { updateRegisteredTeams } = useTeams();
 
   const handleTournamentSelect = (tournamentType) => {
     setTournament(tournamentType);
@@ -97,6 +99,7 @@ export default function Home() {
     return name.trim() !== "" && 
            email.trim() !== "" && 
            whatsapp.trim() !== "" && 
+           whatsapp.length >= 10 &&
            teamName.trim() !== "" &&
            !whatsappError &&
            !emailError;
@@ -153,10 +156,7 @@ export default function Home() {
             setPreparingInvoice(false);
           } else {
             // Tambahkan jumlah tim hanya setelah transaksi berhasil
-            setRegisteredTeams(prev => ({
-              ...prev,
-              [tournament]: prev[tournament] + 1,
-            }));
+            updateRegisteredTeams(tournament);
             
             // Tambahkan parameter waktu ke URL untuk memastikan konsistensi
             window.location.href = `/payment-success?order_id=${result.order_id}`;
@@ -360,6 +360,42 @@ export default function Home() {
     setShowForm(false);
   };
 
+  const handlePaymentSuccess = (tournament) => {
+    // Logika untuk menangani pembayaran yang berhasil
+    updateRegisteredTeams(tournament);
+  };
+
+  useEffect(() => {
+    const fetchRegisteredTeams = async () => {
+      try {
+        // Ambil jumlah tim Mobile Legend
+        const { count: mlCount, error: mlError } = await supabase
+          .from('transactions')
+          .select('*', { count: 'exact' })
+          .eq('tournament', 'MobileLegend');
+
+        // Ambil jumlah tim Free Fire
+        const { count: ffCount, error: ffError } = await supabase
+          .from('transactions')
+          .select('*', { count: 'exact' })
+          .eq('tournament', 'FreeFire');
+
+        if (mlError || ffError) {
+          console.error('Error mengambil data tim:', mlError || ffError);
+          return;
+        }
+
+        // Update state dengan jumlah tim dari database
+        updateRegisteredTeams('MobileLegend', mlCount || 0);
+        updateRegisteredTeams('FreeFire', ffCount || 0);
+      } catch (error) {
+        console.error('Error:', error);
+      }
+    };
+
+    fetchRegisteredTeams();
+  }, [updateRegisteredTeams]);
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-900 via-blue-700 to-blue-500">
       {/* Hero Section */}
@@ -476,8 +512,10 @@ export default function Home() {
           preparingInvoice={preparingInvoice}
           onClose={handleCloseForm}
           whatsappError={whatsappError}
-          checkWhatsappAvailability={checkWhatsappAvailability}
+          setWhatsappError={setWhatsappError}
           emailError={emailError}
+          setEmailError={setEmailError}
+          checkWhatsappAvailability={checkWhatsappAvailability}
           checkEmailAvailability={checkEmailAvailability}
         />
       )}

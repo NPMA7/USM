@@ -3,6 +3,7 @@ import "./globals.css";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import CustomerServiceButton from "@/components/CustomerServiceButton";
+import { TeamProvider } from "@/context/TeamContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -21,16 +22,17 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="id">
-
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gray-100`}>
-        <Navbar />
-        <main>
-          {children}
-        </main>
-        <CustomerServiceButton />
-        <Footer />
-      </body>
-    </html>
+    <TeamProvider>
+      <html lang="id">
+        <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gray-100`}>
+          <Navbar />
+          <main>
+            {children}
+          </main>
+          <CustomerServiceButton />
+          <Footer />
+        </body>
+      </html>
+    </TeamProvider>
   );
 }

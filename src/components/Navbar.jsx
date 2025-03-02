@@ -46,7 +46,9 @@ export default function Navbar() {
     }`}>
       <div className="container mx-auto px-4 flex items-center justify-between">
         <h1 className="text-xl pr-24 font-bold">
+          <a href="/">
           <span className="text-yellow-400">USM</span>
+          </a>
         </h1>
         
         <div className="hidden md:flex items-center space-x-8">

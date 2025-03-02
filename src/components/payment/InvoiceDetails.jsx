@@ -1,7 +1,7 @@
 export default function InvoiceDetails({ transactionData, order_id }) {
   return (
     <div className="mt-4">
-      <div className="bg-gray-100 p-4 rounded-lg shadow-sm w-md mx-auto">
+      <div className="bg-gray-100 p-4 rounded-lg shadow-sm w-md max-sm:w-full mx-auto">
         <div className="grid grid-cols-2 gap-2">
           <p className="font-semibold text-gray-600 flex justify-between w-full">Order ID <span>:</span></p>
           <p className="text-gray-900 break-words overflow-hidden text-ellipsis">{order_id}</p>

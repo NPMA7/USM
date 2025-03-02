@@ -16,12 +16,54 @@ export default function RegistrationForm({
   preparingInvoice, 
   onClose,
   whatsappError,
+  setWhatsappError,
   checkWhatsappAvailability,
   emailError,
+  setEmailError,
   checkEmailAvailability
 }) {
   const handleChatCS = () => {
     window.open(`https://wa.me/6288222810681`, '_blank');
+  };
+
+  const handleWhatsappChange = (e) => {
+    const value = e.target.value;
+    // Hanya menerima input angka dan harus diawali dengan 0
+    if (value === '' || /^[0-9]+$/.test(value)) {
+      if (value.length === 1 && value !== '0') {
+        setWhatsapp('0' + value); // Menambahkan 0 jika hanya 1 digit
+      } else if (value.length > 0 && value[0] !== '0') {
+        setWhatsapp('0' + value); // Menambahkan 0 jika tidak diawali dengan 0
+      } else {
+        setWhatsapp(value);
+      }
+      
+      // Validasi panjang nomor WhatsApp
+      if (value.length < 10) {
+        setWhatsappError("Nomor WhatsApp harus terdiri dari minimal 10 digit");
+      } else if (value.length <= 14) {
+        setWhatsappError(""); // Reset error jika panjang valid
+        checkWhatsappAvailability(value);
+      } else {
+        setWhatsappError("Nomor WhatsApp tidak boleh lebih dari 14 digit");
+      }
+    }
+  };
+
+  const handleEmailChange = (e) => {
+    const value = e.target.value;
+    setEmail(value); // Set nilai email
+
+    // Validasi email
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; // Pola untuk validasi email
+    if (value === "") {
+      setEmailError(""); // Reset error jika kosong
+    } else if (!emailPattern.test(value)) {
+      setEmailError("Format email tidak valid"); // Set error jika format tidak valid
+    } else {
+      setEmailError(""); // Reset error jika format valid
+      checkEmailAvailability(value); // Cek ketersediaan email
+    }
   };
 
   // Fungsi untuk memeriksa apakah form valid
@@ -69,12 +111,7 @@ export default function RegistrationForm({
               type="email"
               placeholder="Email"
               value={email}
-              onChange={(e) => {
-                setEmail(e.target.value);
-                if (e.target.value.includes('@') && e.target.value.includes('.')) {
-                  checkEmailAvailability(e.target.value);
-                }
-              }}
+              onChange={handleEmailChange}
               className={`w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 ${
                 emailError ? 'border-red-500' : ''
               }`}
@@ -90,16 +127,7 @@ export default function RegistrationForm({
               type="text"
               placeholder="Nomor WhatsApp (Pastikan Aktif)"
               value={whatsapp}
-              onChange={(e) => {
-                // Hanya menerima input angka
-                const value = e.target.value;
-                if (value === '' || /^[0-9]+$/.test(value)) {
-                  setWhatsapp(value);
-                  if (value.length > 9) {
-                    checkWhatsappAvailability(value);
-                  }
-                }
-              }}
+              onChange={handleWhatsappChange}
               className={`w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 ${
                 whatsappError ? 'border-red-500' : ''
               }`}

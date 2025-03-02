@@ -1,6 +1,8 @@
 import ProgressBar from "@/components/ProgressBar";
+import { useTeams } from "@/context/TeamContext";
 
-export default function TournamentCard({ title, price, image, onSelect, type, description, registeredTeams, isLoading }) {
+export default function TournamentCard({ title, price, image, onSelect, type, description, isLoading }) {
+  const { registeredTeams } = useTeams();
   const maxTeams = 128; // Maksimal tim yang bisa mendaftar
 
   return (
@@ -19,8 +21,18 @@ export default function TournamentCard({ title, price, image, onSelect, type, de
       </div>
       
       <div className="p-6">
-        <p className="text-gray-600 mb-6">{description}</p>
+        <p className="text-gray-600 mb-4">{description}</p>
         
+        <p className="text-gray-500 mb-4 text-base flex items-center">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-blue-500" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2H3V4zm0 4h18v12a1 1 0 01-1 1H4a1 1 0 01-1-1V8z" />
+            <path d="M3 8h18v2H3V8z" />
+            <path d="M3 12h18v2H3v-2z" />
+            <path d="M3 16h18v2H3v-2z" />
+            <path d="M3 20h18v2H3v-2z" />
+          </svg>
+          11 Maret 2025
+        </p>
         {isLoading ? (
           <div className="w-full bg-gray-200 rounded-full h-4 mb-6">
             <div className="flex items-center justify-center h-full">
@@ -32,16 +44,16 @@ export default function TournamentCard({ title, price, image, onSelect, type, de
             </div>
           </div>
         ) : (
-          <ProgressBar current={registeredTeams} total={maxTeams} />
+          <ProgressBar current={registeredTeams[type]} total={maxTeams} />
         )}
 
         <button
           onClick={() => onSelect(type)}
-          disabled={isLoading || registeredTeams >= maxTeams}
+          disabled={isLoading || registeredTeams[type] >= maxTeams}
           className={`w-full mt-6 ${
             isLoading 
               ? "bg-gray-300 text-gray-500 cursor-not-allowed" 
-              : registeredTeams < maxTeams 
+              : registeredTeams[type] < maxTeams 
                 ? "bg-blue-600 text-white hover:bg-blue-700" 
                 : "bg-gray-300 text-gray-500 cursor-not-allowed"
           } py-3 rounded-lg font-semibold transition duration-300 flex items-center justify-center`}
@@ -54,7 +66,7 @@ export default function TournamentCard({ title, price, image, onSelect, type, de
               </svg>
               Memuat...
             </span>
-          ) : registeredTeams >= maxTeams ? (
+          ) : registeredTeams[type] >= maxTeams ? (
             <>
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
