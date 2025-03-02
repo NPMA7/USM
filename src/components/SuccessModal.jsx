@@ -1,6 +1,6 @@
 export default function SuccessModal({ message, onClose, isLoading = false }) {
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+    <div className="fixed inset-0 bg-transparent backdrop-blur-xl  flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-xl shadow-2xl p-8 max-w-md w-full">
         <div className="text-center">
           {isLoading ? (

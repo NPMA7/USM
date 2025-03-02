@@ -1,3 +1,5 @@
+import React, { useEffect, useState } from 'react';
+
 export default function RegistrationForm({ 
   tournament, 
   amount, 
@@ -9,6 +11,10 @@ export default function RegistrationForm({
   setWhatsapp, 
   teamName, 
   setTeamName, 
+  captainNickname,
+  setCaptainNickname,
+  captainGameId,
+  setCaptainGameId,
   handlePayment, 
   isFormValid, 
   isLoading, 
@@ -20,49 +26,52 @@ export default function RegistrationForm({
   checkWhatsappAvailability,
   emailError,
   setEmailError,
-  checkEmailAvailability
+  checkEmailAvailability,
+  isLoggedIn,
+  userData,
+  error
 }) {
+  // State untuk form kedua (detail tim)
+  const [currentStep, setCurrentStep] = useState(1); // 1: Form transaksi, 2: Form detail tim
+  const [teamDetailsValid, setTeamDetailsValid] = useState(false);
+
+  // Gunakan useEffect untuk mengisi form dengan data pengguna dari database
+  // ketika komponen dimuat
+  useEffect(() => {
+    if (isLoggedIn && userData) {
+      // Isi form dengan data pengguna yang sudah login
+      setName(userData.name || "");
+      setEmail(userData.email || "");
+      setWhatsapp(userData.whatsapp || "");
+    }
+  }, [isLoggedIn, userData, setName, setEmail, setWhatsapp]);
+
   const handleChatCS = () => {
     window.open(`https://wa.me/6288222810681`, '_blank');
   };
 
   const handleWhatsappChange = (e) => {
     const value = e.target.value;
-    // Hanya menerima input angka dan harus diawali dengan 0
-    if (value === '' || /^[0-9]+$/.test(value)) {
-      if (value.length === 1 && value !== '0') {
-        setWhatsapp('0' + value); // Menambahkan 0 jika hanya 1 digit
-      } else if (value.length > 0 && value[0] !== '0') {
-        setWhatsapp('0' + value); // Menambahkan 0 jika tidak diawali dengan 0
-      } else {
-        setWhatsapp(value);
-      }
-      
-      // Validasi panjang nomor WhatsApp
-      if (value.length < 10) {
-        setWhatsappError("Nomor WhatsApp harus terdiri dari minimal 10 digit");
-      } else if (value.length <= 14) {
-        setWhatsappError(""); // Reset error jika panjang valid
+    // Hanya izinkan angka
+    if (/^\d*$/.test(value)) {
+      setWhatsapp(value);
+      if (value.length >= 10) {
         checkWhatsappAvailability(value);
       } else {
-        setWhatsappError("Nomor WhatsApp tidak boleh lebih dari 14 digit");
+        setWhatsappError("");
       }
     }
   };
 
   const handleEmailChange = (e) => {
     const value = e.target.value;
-    setEmail(value); // Set nilai email
-
-    // Validasi email
-    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; // Pola untuk validasi email
-    if (value === "") {
-      setEmailError(""); // Reset error jika kosong
-    } else if (!emailPattern.test(value)) {
-      setEmailError("Format email tidak valid"); // Set error jika format tidak valid
+    setEmail(value);
+    // Validasi format email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (emailRegex.test(value)) {
+      checkEmailAvailability(value);
     } else {
-      setEmailError(""); // Reset error jika format valid
-      checkEmailAvailability(value); // Cek ketersediaan email
+      setEmailError("");
     }
   };
 
@@ -71,8 +80,54 @@ export default function RegistrationForm({
     return isFormValid() && !whatsappError && !emailError;
   };
 
+  // Fungsi untuk memeriksa apakah form detail tim valid
+  const validateTeamDetails = () => {
+    const isValid = captainNickname.trim() !== "" && captainGameId.trim() !== "";
+    setTeamDetailsValid(isValid);
+    return isValid;
+  };
+
+  // Fungsi untuk menangani perubahan pada form detail tim
+  useEffect(() => {
+    validateTeamDetails();
+  }, [captainNickname, captainGameId]);
+
+  // Validasi ID Game hanya angka
+  const handleGameIdChange = (e) => {
+    const value = e.target.value;
+    // Hanya izinkan angka
+    if (/^\d*$/.test(value)) {
+      setCaptainGameId(value);
+    }
+  };
+
+  // Fungsi untuk menangani klik tombol lanjut
+  const handleNextStep = () => {
+    if (isFormReadyForSubmit()) {
+      setCurrentStep(2);
+    }
+  };
+
+  // Fungsi untuk menangani klik tombol kembali
+  const handlePrevStep = () => {
+    setCurrentStep(1);
+  };
+
+  // Fungsi untuk menangani submit form
+  const handleSubmitForm = () => {
+    if (teamDetailsValid) {
+      console.log("Mengirim data tim:", { captainNickname, captainGameId });
+      
+      // Kirim data transaksi dan detail tim
+      handlePayment({
+        captainNickname,
+        captainGameId
+      });
+    }
+  };
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+    <div className="fixed inset-0 bg-transparent backdrop-blur-xl  flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-xl shadow-2xl p-8 max-w-md w-full relative animate-fadeIn">
         <button 
           onClick={onClose}
@@ -87,95 +142,217 @@ export default function RegistrationForm({
           Form Pendaftaran {tournament === "MobileLegend" ? "Mobile Legends" : "Free Fire"}
         </h3>
         
-        <div className="space-y-4">
-          <input
-            type="text"
-            placeholder="Nama Lengkap"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
-            required
-            disabled={isLoading || processingPayment}
-          />
-          <input
-            type="text"
-            placeholder="Nama Tim"
-            value={teamName}
-            onChange={(e) => setTeamName(e.target.value)}
-            className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
-            required
-            disabled={isLoading || processingPayment}
-          />
-          <div>
-            <input
-              type="email"
-              placeholder="Email"
-              value={email}
-              onChange={handleEmailChange}
-              className={`w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 ${
-                emailError ? 'border-red-500' : ''
-              }`}
-              required
-              disabled={isLoading || processingPayment}
-            />
-            {emailError && (
-              <p className="text-xs text-red-500 mt-1">{emailError}</p>
-            )}
+        {/* Tampilkan pesan error jika ada */}
+        {error && (
+          <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-red-500" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm text-red-700">{error}</p>
+              </div>
+            </div>
           </div>
-          <div>
-            <input
-              type="text"
-              placeholder="Nomor WhatsApp (Pastikan Aktif)"
-              value={whatsapp}
-              onChange={handleWhatsappChange}
-              className={`w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 ${
-                whatsappError ? 'border-red-500' : ''
-              }`}
-              required
-              inputMode="numeric"
-              pattern="[0-9]*"
-              disabled={isLoading || processingPayment}
-            />
-            <p className="text-xs text-gray-500 mt-1">*Satu nomor WhatsApp untuk satu tim</p>
-            {whatsappError && (
-              <p className="text-xs text-red-500 mt-1">{whatsappError}</p>
-            )}
+        )}
+        
+        {/* Indikator langkah */}
+        <div className="flex justify-center mb-6">
+          <div className="flex items-center">
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${currentStep === 1 ? 'bg-blue-600 text-white' : 'bg-gray-300 text-gray-700'}`}>
+              1
+            </div>
+            <div className="w-16 h-1 bg-gray-300">
+              <div className={`h-full ${currentStep === 2 ? 'bg-blue-600' : 'bg-gray-300'}`} style={{ width: currentStep === 1 ? '0%' : '100%' }}></div>
+            </div>
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${currentStep === 2 ? 'bg-blue-600 text-white' : 'bg-gray-300 text-gray-700'}`}>
+              2
+            </div>
           </div>
-          
-          <div className="bg-blue-50 p-4 rounded-lg">
-            <p className="text-blue-800 font-semibold">Detail Turnamen:</p>
-            <p className="text-gray-600">Game: {tournament === "MobileLegend" ? "Mobile Legends" : "Free Fire"}</p>
-            <p className="text-gray-600">Biaya: Rp {amount.toLocaleString()}</p>
-          </div>
+        </div>
+        
+        {currentStep === 1 ? (
+          // Form Langkah 1: Data Transaksi
+          <div className="space-y-4">
+            <div>
+              <label className="block text-gray-700 text-sm font-bold mb-2">
+                Nama Lengkap
+              </label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Masukkan nama lengkap"
+                required
+                disabled={isLoggedIn || isLoading || processingPayment || preparingInvoice}
+              />
+            </div>
 
-          <button
-            onClick={handlePayment}
-            disabled={!isFormReadyForSubmit() || isLoading || processingPayment || preparingInvoice}
-            className={`w-full p-4 rounded-lg font-bold transition duration-300 mt-6 ${
-              isFormReadyForSubmit() && !isLoading && !processingPayment && !preparingInvoice
-                ? "bg-blue-600 text-white hover:bg-blue-700" 
-                : "bg-gray-300 text-gray-500 cursor-not-allowed"
-            }`}
-          >
-            {isLoading ? (
-              <div className="flex items-center justify-center">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white mr-2"></div>
-                Memproses...
-              </div>
-            ) : processingPayment ? (
-              <div className="flex items-center justify-center">
-                <div className="animate-pulse rounded-full h-6 w-6 bg-blue-400 mr-2"></div>
-                Menunggu Pembayaran...
-              </div>
-            ) : preparingInvoice ? (
-              <div className="flex items-center justify-center">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-500 mr-2"></div>
-                Sedang Menyiapkan Invoice...
-              </div>
-            ) : (
-              "Lanjutkan ke Pembayaran"
-            )}
-          </button>
+            <div>
+              <label className="block text-gray-700 text-sm font-bold mb-2">
+                Email
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={handleEmailChange}
+                className={`w-full px-3 py-2 border ${emailError ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                placeholder="Masukkan email"
+                required
+                disabled={isLoggedIn || isLoading || processingPayment || preparingInvoice}
+              />
+              {emailError && <p className="text-red-500 text-xs mt-1">{emailError}</p>}
+            </div>
+
+            <div>
+              <label className="block text-gray-700 text-sm font-bold mb-2">
+                Nomor WhatsApp
+              </label>
+              <input
+                type="text"
+                value={whatsapp}
+                onChange={handleWhatsappChange}
+                className={`w-full px-3 py-2 border ${whatsappError ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                placeholder="Contoh: 08123456789"
+                required
+                disabled={isLoggedIn || isLoading || processingPayment || preparingInvoice}
+              />
+              {whatsappError && <p className="text-red-500 text-xs mt-1">{whatsappError}</p>}
+            </div>
+
+            <div>
+              <label className="block text-gray-700 text-sm font-bold mb-2">
+                Nama Tim
+              </label>
+              <input
+                type="text"
+                value={teamName}
+                onChange={(e) => setTeamName(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Masukkan nama tim"
+                required
+                disabled={isLoading || processingPayment || preparingInvoice}
+              />
+            </div>
+
+            <div className="bg-blue-50 p-4 rounded-md">
+              <p className="text-blue-800 text-sm font-medium">Biaya Pendaftaran: Rp {amount.toLocaleString()}</p>
+            </div>
+
+            <button
+              onClick={handleNextStep}
+              disabled={!isFormReadyForSubmit() || isLoading || processingPayment || preparingInvoice}
+              className={`w-full py-3 px-4 rounded-md font-medium ${
+                isFormReadyForSubmit() && !(isLoading || processingPayment || preparingInvoice)
+                  ? 'bg-blue-600 text-white hover:bg-blue-700'
+                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              }`}
+            >
+              Lanjutkan
+            </button>
+          </div>
+        ) : (
+          // Form Langkah 2: Detail Tim
+          <div className="space-y-4">
+            <div>
+              <label className="block text-gray-700 text-sm font-bold mb-2">
+                Nickname In-Game Kapten
+              </label>
+              <input
+                type="text"
+                value={captainNickname}
+                onChange={(e) => setCaptainNickname(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Masukkan nickname in-game kapten"
+                required
+                disabled={isLoading || processingPayment || preparingInvoice}
+              />
+            </div>
+
+            <div>
+              <label className="block text-gray-700 text-sm font-bold mb-2">
+                ID In-Game Kapten
+              </label>
+              <input
+                type="text"
+                value={captainGameId}
+                onChange={handleGameIdChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Masukkan ID in-game kapten (hanya angka)"
+                required
+                disabled={isLoading || processingPayment || preparingInvoice}
+              />
+            </div>
+
+            <div className="bg-blue-50 p-4 rounded-md">
+              <p className="text-blue-800 text-sm">
+                Pastikan data yang dimasukkan sudah benar. Setelah pembayaran berhasil, Anda akan dimasukkan ke grup WhatsApp turnamen.
+              </p>
+            </div>
+
+            <div className="flex space-x-3">
+              <button
+                onClick={handlePrevStep}
+                disabled={isLoading || processingPayment || preparingInvoice}
+                className={`w-1/3 py-3 px-4 rounded-md font-medium border border-gray-300 ${
+                  isLoading || processingPayment || preparingInvoice
+                    ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                Kembali
+              </button>
+              <button
+                onClick={handleSubmitForm}
+                disabled={!teamDetailsValid || isLoading || processingPayment || preparingInvoice}
+                className={`w-2/3 py-3 px-4 rounded-md font-medium ${
+                  !teamDetailsValid || isLoading || processingPayment || preparingInvoice
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                }`}
+              >
+                {preparingInvoice ? (
+                  <span className="flex items-center justify-center">
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Menyiapkan Invoice...
+                  </span>
+                ) : processingPayment ? (
+                  <span className="flex items-center justify-center">
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Memproses Pembayaran...
+                  </span>
+                ) : isLoading ? (
+                  <span className="flex items-center justify-center">
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Memuat...
+                  </span>
+                ) : (
+                  "Bayar Sekarang"
+                )}
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="mt-6 text-center">
+          <p className="text-sm text-gray-500">
+            Butuh bantuan?{" "}
+            <button onClick={handleChatCS} className="text-blue-600 hover:underline">
+              Hubungi CS
+            </button>
+          </p>
         </div>
       </div>
     </div>

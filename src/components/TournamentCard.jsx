@@ -1,9 +1,47 @@
 import ProgressBar from "@/components/ProgressBar";
 import { useTeams } from "@/context/TeamContext";
+import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
 
 export default function TournamentCard({ title, price, image, onSelect, type, description, isLoading }) {
   const { registeredTeams } = useTeams();
   const maxTeams = 128; // Maksimal tim yang bisa mendaftar
+  const [isUserRegistered, setIsUserRegistered] = useState(false);
+  const [checkingRegistration, setCheckingRegistration] = useState(true);
+
+  useEffect(() => {
+    const checkUserRegistration = async () => {
+      setCheckingRegistration(true);
+      try {
+        // Ambil data pengguna dari localStorage
+        const userData = localStorage.getItem('user');
+        if (!userData) {
+          setCheckingRegistration(false);
+          return;
+        }
+
+        const user = JSON.parse(userData);
+        
+         const { data, error } = await supabase
+          .from('transactions')
+          .select('*')
+          .eq('email', user.email)
+          .eq('tournament', type);
+        
+        if (error) {
+          console.error('Error memeriksa pendaftaran:', error.message || JSON.stringify(error));
+        } else {
+          setIsUserRegistered(data && data.length > 0);
+        }
+      } catch (error) {
+        console.error('Error:', error instanceof Error ? error.message : JSON.stringify(error));
+      } finally {
+        setCheckingRegistration(false);
+      }
+    };
+
+    checkUserRegistration();
+  }, [type]);
 
   return (
     <div className="bg-white rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
@@ -47,18 +85,22 @@ export default function TournamentCard({ title, price, image, onSelect, type, de
           <ProgressBar current={registeredTeams[type]} total={maxTeams} />
         )}
 
+       
+
         <button
           onClick={() => onSelect(type)}
-          disabled={isLoading || registeredTeams[type] >= maxTeams}
+          disabled={isLoading || registeredTeams[type] >= maxTeams || isUserRegistered || checkingRegistration}
           className={`w-full mt-6 ${
-            isLoading 
+            isLoading || checkingRegistration
               ? "bg-gray-300 text-gray-500 cursor-not-allowed" 
-              : registeredTeams[type] < maxTeams 
-                ? "bg-blue-600 text-white hover:bg-blue-700" 
-                : "bg-gray-300 text-gray-500 cursor-not-allowed"
+              : isUserRegistered
+                ? "bg-green-600 text-white cursor-not-allowed"
+                : registeredTeams[type] < maxTeams 
+                  ? "bg-blue-600 text-white hover:bg-blue-700" 
+                  : "bg-gray-300 text-gray-500 cursor-not-allowed"
           } py-3 rounded-lg font-semibold transition duration-300 flex items-center justify-center`}
         >
-          {isLoading ? (
+          {isLoading || checkingRegistration ? (
             <span className="flex items-center">
               <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -66,6 +108,13 @@ export default function TournamentCard({ title, price, image, onSelect, type, de
               </svg>
               Memuat...
             </span>
+          ) : isUserRegistered ? (
+            <>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              Anda Sudah Mendaftar
+            </>
           ) : registeredTeams[type] >= maxTeams ? (
             <>
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">

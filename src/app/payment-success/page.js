@@ -19,9 +19,7 @@ function PaymentSuccessContent() {
   
   const [transactionData, setTransactionData] = useState(null);
   const [error, setError] = useState(null);
-  const [timeLeft, setTimeLeft] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isExpired, setIsExpired] = useState(false);
 
   useEffect(() => {
     const fetchTransactionData = async () => {
@@ -46,18 +44,6 @@ function PaymentSuccessContent() {
           throw new Error("Data transaksi tidak ditemukan");
         }
 
-        // Cek apakah invoice sudah kadaluarsa
-        const createdAt = new Date(data.created_at);
-        const now = new Date();
-        const tenMinutes = 10 * 60 * 1000; // 10 menit dalam milidetik
-      
-        if (now - createdAt > tenMinutes) {
-          setError("Invoice sudah tidak dapat dilihat setelah 10 menit.");
-          setIsExpired(true);
-          setIsLoading(false);
-          return;
-        }
-
         setTransactionData(data);
         setIsLoading(false);
       } catch (err) {
@@ -69,36 +55,6 @@ function PaymentSuccessContent() {
     fetchTransactionData();
   }, [order_id]);
 
-  // Tambahkan useEffect untuk menghitung waktu tersisa
-  useEffect(() => {
-    if (!transactionData || !transactionData.created_at) return;
-    
-    const createdAt = new Date(transactionData.created_at);
-    const tenMinutes = 10 * 60 * 1000; // 10 menit dalam milidetik
-    const expiryTime = new Date(createdAt.getTime() + tenMinutes);
-    
-    const updateTimeLeft = () => {
-      const now = new Date();
-      const diff = expiryTime - now;
-      
-      if (diff <= 0) {
-        setTimeLeft("Invoice sudah tidak tersedia");
-        setIsExpired(true);
-        setError("Invoice sudah tidak dapat dilihat setelah 10 menit.");
-        return;
-      }
-      
-      const minutes = Math.floor(diff / 60000);
-      const seconds = Math.floor((diff % 60000) / 1000);
-      setTimeLeft(`${minutes}:${seconds < 10 ? '0' : ''}${seconds}`);
-    };
-    
-    updateTimeLeft();
-    const timer = setInterval(updateTimeLeft, 1000);
-    
-    return () => clearInterval(timer);
-  }, [transactionData]);
-
   const downloadInvoice = () => {
     if (!invoiceRef.current) return;
 
@@ -109,11 +65,13 @@ function PaymentSuccessContent() {
         link.download = `invoice-${order_id}.png`;
         link.click();
       })
-      .catch((error) => {});
+      .catch((error) => {
+        console.error("Error generating invoice image:", error);
+      });
   };
 
-  if (isExpired || error) {
-    return <ErrorDisplay error={error || "Invoice sudah tidak dapat dilihat setelah 10 menit."} />;
+  if (error) {
+    return <ErrorDisplay error={error} />;
   }
 
   if (isLoading || !transactionData) {
@@ -123,13 +81,6 @@ function PaymentSuccessContent() {
   return (
     <div className="flex flex-col mt-16 items-center justify-center min-h-screen bg-gradient-to-br from-gray-100 to-gray-300 p-6">
       <WarningBanner />
-      
-      {/* Tampilkan timer di atas invoice */}
-      {timeLeft && (
-        <div className="bg-red-100 text-red-600 px-4 py-2 rounded-lg text-sm font-medium mb-4 shadow-sm">
-          Tersisa: {timeLeft}
-        </div>
-      )}
       
       <Invoice 
         transactionData={transactionData} 

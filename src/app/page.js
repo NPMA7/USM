@@ -10,8 +10,10 @@ import FAQ from "@/components/FAQ";
 import InfoSection from "@/components/InfoSection";
 import { supabase } from "@/lib/supabase"; // Mengimpor supabase dari lib
 import { useTeams } from "@/context/TeamContext";
+import { useRouter } from "next/navigation";
 
 export default function Home() {
+  const router = useRouter();
   const { snapLoaded } = useMidtrans();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -20,6 +22,8 @@ export default function Home() {
   const [showForm, setShowForm] = useState(false);
   const [amount, setAmount] = useState(0);
   const [teamName, setTeamName] = useState("");
+  const [captainNickname, setCaptainNickname] = useState("");
+  const [captainGameId, setCaptainGameId] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -40,8 +44,50 @@ export default function Home() {
   const [whatsappError, setWhatsappError] = useState("");
   const [emailError, setEmailError] = useState("");
   const { updateRegisteredTeams } = useTeams();
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userData, setUserData] = useState(null);
+  const [error, setError] = useState("");
+  const [teamData, setTeamData] = useState(null);
 
-  const handleTournamentSelect = (tournamentType) => {
+  // Cek status login pengguna
+  useEffect(() => {
+    const checkLoginStatus = () => {
+      const user = localStorage.getItem('user');
+      if (user) {
+        const parsedUser = JSON.parse(user);
+        setIsLoggedIn(true);
+        setUserData(parsedUser);
+        // Pre-fill form dengan data pengguna
+        setName(parsedUser.name || "");
+        setEmail(parsedUser.email || "");
+        setWhatsapp(parsedUser.whatsapp || "");
+      } else {
+        setIsLoggedIn(false);
+        setUserData(null);
+      }
+    };
+
+    checkLoginStatus();
+  }, []);
+
+  const handleTournamentSelect = async (tournamentType) => {
+    // Cek apakah pengguna sudah login
+    if (!isLoggedIn) {
+      // Simpan jenis turnamen yang dipilih ke localStorage
+      localStorage.setItem('selectedTournament', tournamentType);
+      // Redirect ke halaman login
+      router.push('/auth/login');
+      return;
+    }
+
+    // Cek apakah pengguna sudah mendaftar untuk turnamen ini
+    const alreadyRegistered = await checkUserRegistration(userData, tournamentType);
+    
+    if (alreadyRegistered) {
+      alert("Anda sudah mendaftarkan tim untuk turnamen ini. Satu pengguna hanya dapat mendaftarkan satu tim per turnamen.");
+      return;
+    }
+
     setTournament(tournamentType);
     setAmount(tournamentType === "MobileLegend" ? 35000 : 25000);
     setShowForm(true);
@@ -54,10 +100,10 @@ export default function Home() {
         .from('transactions')
         .select('*')
         .eq('whatsapp', number)
-        .eq('tournament', tournament);
+        .eq('tournament', tournament)
+        .eq('transaction_status', 'settlement'); // Hanya cek yang sudah settlement
       
       if (error) {
-        console.error('Error checking WhatsApp availability:', error);
         return;
       }
       
@@ -67,7 +113,7 @@ export default function Home() {
         setWhatsappError("");
       }
     } catch (error) {
-      console.error('Error:', error);
+      // Handle error
     }
   };
 
@@ -78,10 +124,10 @@ export default function Home() {
         .from('transactions')
         .select('*')
         .eq('email', emailAddress)
-        .eq('tournament', tournament);
+        .eq('tournament', tournament)
+        .eq('transaction_status', 'settlement'); // Hanya cek yang sudah settlement
       
       if (error) {
-        console.error('Error checking email availability:', error);
         return;
       }
       
@@ -91,7 +137,7 @@ export default function Home() {
         setEmailError("");
       }
     } catch (error) {
-      console.error('Error:', error);
+      // Handle error
     }
   };
 
@@ -100,7 +146,7 @@ export default function Home() {
            email.trim() !== "" && 
            whatsapp.trim() !== "" && 
            whatsapp.length >= 10 &&
-           teamName.trim() !== "" &&
+           teamName.trim() !== "" && 
            !whatsappError &&
            !emailError;
   };
@@ -128,117 +174,210 @@ export default function Home() {
           // Simpan ke Supabase dengan waktu saat ini
           const currentTime = new Date();
           currentTime.setHours(currentTime.getHours() + 7); // Menambahkan 7 jam untuk waktu Indonesia
-          const formattedTime = currentTime.toISOString().slice(0, 19).replace('T', ' '); // Format menjadi YYYY-MM-DD HH:MM:SS
+          const formattedTime = currentTime.toISOString(); // Gunakan format ISO untuk timestamp
+          
+          // Sesuaikan data transaksi dengan struktur tabel yang ada
+          const transactionData = {
+            order_id: result.order_id,
+            status_code: result.status_code,
+            transaction_status: result.transaction_status,
+            gross_amount: result.gross_amount,
+            payment_type: result.payment_type,
+            fraud_status: result.fraud_status || 'none',
+            transaction_time: result.transaction_time || formattedTime,
+            name,
+            email,
+            whatsapp,
+            tournament,
+            team_name: teamName,
+            created_at: formattedTime
+          };
+          
           const { data, error } = await supabase
             .from('transactions')
-            .insert([
-              {
-                order_id: result.order_id,
-                status_code: result.status_code,
-                transaction_status: result.transaction_status,
-                gross_amount: result.gross_amount,
-                payment_type: result.payment_type,
-                fraud_status: result.fraud_status,
-                transaction_time: result.transaction_time,
-                name,
-                email,
-                whatsapp,
-                tournament,
-                team_name: teamName,
-                created_at: formattedTime,
-              }
-            ])
-            .select('*');
-
-          if (error) {
-            console.error('Error inserting into Supabase:', error);
-            alert('Terjadi kesalahan saat menyimpan transaksi ke database.');
-            setPreparingInvoice(false);
-          } else {
-            // Tambahkan jumlah tim hanya setelah transaksi berhasil
-            updateRegisteredTeams(tournament);
+            .insert([transactionData])
+            .select();
             
-            // Tambahkan parameter waktu ke URL untuk memastikan konsistensi
-            window.location.href = `/payment-success?order_id=${result.order_id}`;
+          if (error) {
+            throw new Error(`Gagal menyimpan transaksi: ${error.message}`);
           }
+          
+          // Ambil data tim dari localStorage
+          const savedTeamData = localStorage.getItem('teamData');
+          
+          if (savedTeamData) {
+            const parsedTeamData = JSON.parse(savedTeamData);
+            
+            if (parsedTeamData.captainNickname && parsedTeamData.captainGameId) {
+              const teamDetailsData = {
+                order_id: result.order_id,
+                team_name: teamName,
+                captain_nickname: parsedTeamData.captainNickname,
+                captain_game_id: parsedTeamData.captainGameId,
+                email: email,
+                tournament: tournament,
+                created_at: formattedTime
+              };
+              
+              // Simpan data kapten ke tabel team_details
+              const { error: teamError } = await supabase
+                .from('team_details')
+                .insert([teamDetailsData]);
+                
+              if (teamError) {
+                // Handle error
+              } else {
+                // Hapus data tim dari localStorage setelah berhasil disimpan
+                localStorage.removeItem('teamData');
+              }
+            } else {
+              // Handle incomplete captain data
+            }
+          } else {
+            // Handle missing team data
+          }
+          
+          // Arahkan ke halaman sukses dengan order ID
+          router.push(`/payment-success?order_id=${result.order_id}`);
         } catch (error) {
-          console.error('Error in transaction processing:', error);
           setPreparingInvoice(false);
-          alert('Terjadi kesalahan saat menyiapkan invoice. Silakan coba lagi.');
+          alert(`Terjadi kesalahan saat menyimpan transaksi: ${error.message}. Silakan hubungi admin dengan bukti pembayaran Anda.`);
         }
       },
-      onPending: function (result) {
-        setShowCancelModal(true);
-        setIsLoading(false);
-      },
-      onError: function (result) {
-        alert('Pembayaran gagal.');
-        setIsLoading(false);
+      onPending: function(result) {
         setProcessingPayment(false);
+        setShowConfirmationModal(true);
       },
-      onClose: function () {
+      onError: function(result) {
+        setProcessingPayment(false);
+        alert("Pembayaran gagal! Silakan coba lagi.");
+      },
+      onClose: function() {
+        setProcessingPayment(false);
         setShowCancelModal(true);
       }
     });
   };
 
-  const handlePayment = async () => {
-    if (!snapLoaded) {
-      alert("Midtrans belum siap, silakan coba lagi.");
-      return;
-    }
+  const handlePayment = async (teamDetails) => {
+    if (!isFormValid()) return;
 
-    if (!isFormValid()) {
-      alert("Mohon lengkapi semua data terlebih dahulu.");
-      return;
-    }
+    // Simpan data tim ke state dan localStorage
+    setTeamData(teamDetails);
+    localStorage.setItem('teamData', JSON.stringify(teamDetails));
     
+    // Simpan juga ke state terpisah untuk keamanan
+    setCaptainNickname(teamDetails.captainNickname);
+    setCaptainGameId(teamDetails.captainGameId);
+
     setIsLoading(true);
-    setProcessingPayment(true);
-    const newOrderId = `ORDER-${Date.now()}`;
-    setOrderId(newOrderId);
+    setPreparingInvoice(true);
+    setError("");
 
     try {
+      // Buat ID pesanan unik
+      const timestamp = new Date().getTime();
+      const randomNum = Math.floor(Math.random() * 1000);
+      const newOrderId = `ORDER-${timestamp}-${randomNum}`;
+      setOrderId(newOrderId);
+
+      // Kirim data ke API untuk mendapatkan token Midtrans
       const response = await fetch("/api/midtrans", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          orderId: newOrderId, 
-          amount, 
-          name, 
-          email, 
-          whatsapp, 
-          tournament, 
-          teamName 
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          orderId: newOrderId,
+          amount,
+          name,
+          email,
+          whatsapp,
+          tournament,
+          teamName,
+          userEmail: userData?.email,
         }),
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
       const data = await response.json();
 
-      if (data.token) {
+      if (response.ok) {
         setSnapToken(data.token);
-        setTimeout(() => {
+        setPreparingInvoice(false);
+        setProcessingPayment(true);
+
+        // Buka Snap untuk pembayaran
+        if (window.snap && data.token) {
           openSnapPopup(data.token);
+        } else {
+          setError("Terjadi kesalahan saat memuat pembayaran. Silakan coba lagi.");
           setIsLoading(false);
-        }, 100);
+          setProcessingPayment(false);
+        }
       } else {
-        throw new Error("Tidak mendapatkan token dari server");
+        setError(data.error || "Terjadi kesalahan saat memproses pembayaran. Silakan coba lagi.");
+        setIsLoading(false);
+        setProcessingPayment(false);
+        setPreparingInvoice(false);
       }
     } catch (error) {
-      alert(`Error: ${error.message}`);
+      setError("Terjadi kesalahan saat memproses pembayaran. Silakan coba lagi.");
       setIsLoading(false);
       setProcessingPayment(false);
+      setPreparingInvoice(false);
     }
   };
 
-  const handleCancelConfirm = async () => {
-    if (orderId) {
+  // Fungsi untuk menangani konfirmasi pembatalan pembayaran
+  const handleCancelPayment = async (confirmed) => {
+    setShowConfirmationModal(false);
+    
+    if (confirmed) {
+      // Jika pengguna mengkonfirmasi pembatalan
       setIsCancelLoading(true);
-      
+      try {
+        // Lakukan pembatalan transaksi jika diperlukan
+        const response = await fetch("/api/cancel-transaction", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ orderId }),
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          setSuccessMessage("Transaksi berhasil dibatalkan");
+        } else {
+          setSuccessMessage("Transaksi gagal dibatalkan, tetapi Anda dapat mencoba lagi nanti");
+        }
+        
+        // Reset form dan state
+        resetForm();
+        setShowForm(false);
+        setShowSuccessModal(true);
+      } catch (error) {
+        setSuccessMessage("Terjadi kesalahan saat membatalkan transaksi");
+        setShowSuccessModal(true);
+      } finally {
+        setIsCancelLoading(false);
+        setIsLoading(false);
+        setProcessingPayment(false);
+      }
+    } else {
+      // Jika pengguna ingin melanjutkan pembayaran
+      if (snapToken) {
+        // Buka kembali popup pembayaran
+        openSnapPopup(snapToken);
+      } else {
+        setIsLoading(false);
+        setProcessingPayment(false);
+      }
+    }
+  };
+
+  const handleCancelConfirm = async (confirmed) => {
+    if (confirmed) {
+      setIsCancelLoading(true);
       try {
         const response = await fetch("/api/cancel-transaction", {
           method: "POST",
@@ -300,32 +439,26 @@ export default function Home() {
     setShowSuccessModal(false);
   };
 
-  // Fungsi untuk menangani pembatalan pembayaran
-  const handleCancelPayment = async () => {
-    // Logika pembatalan pembayaran
-    // ...
-    setShowConfirmationModal(false);
-  };
-
   // Mengambil data jumlah tim terdaftar dari Supabase saat komponen dimuat
   useEffect(() => {
     const fetchRegisteredTeams = async () => {
       setIsLoadingTeams(true); // Set loading menjadi true saat mulai fetch
       try {
-        // Ambil jumlah tim Mobile Legend
+        // Ambil jumlah tim Mobile Legend yang sudah settlement
         const { count: mlCount, error: mlError } = await supabase
           .from('transactions')
           .select('*', { count: 'exact' })
-          .eq('tournament', 'MobileLegend');
+          .eq('tournament', 'MobileLegend')
+          .eq('transaction_status', 'settlement'); // Hanya hitung yang sudah settlement
         
-        // Ambil jumlah tim Free Fire
+        // Ambil jumlah tim Free Fire yang sudah settlement
         const { count: ffCount, error: ffError } = await supabase
           .from('transactions')
           .select('*', { count: 'exact' })
-          .eq('tournament', 'FreeFire');
+          .eq('tournament', 'FreeFire')
+          .eq('transaction_status', 'settlement'); // Hanya hitung yang sudah settlement
         
         if (mlError || ffError) {
-          console.error('Error mengambil data tim:', mlError || ffError);
           return;
         }
         
@@ -335,7 +468,7 @@ export default function Home() {
           FreeFire: ffCount || 0
         });
       } catch (error) {
-        console.error('Error:', error);
+        // Handle error
       } finally {
         setIsLoadingTeams(false); // Set loading menjadi false setelah selesai
       }
@@ -346,9 +479,9 @@ export default function Home() {
 
   // Tambahkan fungsi resetForm
   const resetForm = () => {
-    setName("");
-    setEmail("");
-    setWhatsapp("");
+    setName(userData?.name || "");
+    setEmail(userData?.email || "");
+    setWhatsapp(userData?.whatsapp || "");
     setTeamName("");
     setWhatsappError("");
     setEmailError("");
@@ -368,20 +501,21 @@ export default function Home() {
   useEffect(() => {
     const fetchRegisteredTeams = async () => {
       try {
-        // Ambil jumlah tim Mobile Legend
+        // Ambil jumlah tim Mobile Legend yang sudah settlement
         const { count: mlCount, error: mlError } = await supabase
           .from('transactions')
           .select('*', { count: 'exact' })
-          .eq('tournament', 'MobileLegend');
+          .eq('tournament', 'MobileLegend')
+          .eq('transaction_status', 'settlement'); // Hanya hitung yang sudah settlement
 
-        // Ambil jumlah tim Free Fire
+        // Ambil jumlah tim Free Fire yang sudah settlement
         const { count: ffCount, error: ffError } = await supabase
           .from('transactions')
           .select('*', { count: 'exact' })
-          .eq('tournament', 'FreeFire');
+          .eq('tournament', 'FreeFire')
+          .eq('transaction_status', 'settlement'); // Hanya hitung yang sudah settlement
 
         if (mlError || ffError) {
-          console.error('Error mengambil data tim:', mlError || ffError);
           return;
         }
 
@@ -389,12 +523,42 @@ export default function Home() {
         updateRegisteredTeams('MobileLegend', mlCount || 0);
         updateRegisteredTeams('FreeFire', ffCount || 0);
       } catch (error) {
-        console.error('Error:', error);
+        // Handle error
       }
     };
 
     fetchRegisteredTeams();
   }, [updateRegisteredTeams]);
+
+  // Fungsi untuk memeriksa apakah pengguna sudah mendaftar untuk turnamen tertentu
+  const checkUserRegistration = async (userData, tournamentType) => {
+    try {
+      // Gunakan email sebagai pengenal unik untuk pengguna
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('*')
+        .eq('email', userData.email)
+        .eq('tournament', tournamentType)
+        .eq('transaction_status', 'settlement'); // Hanya cek yang sudah settlement
+      
+      if (error) {
+        return false;
+      }
+      
+      // Jika data ditemukan, berarti pengguna sudah mendaftar
+      return data && data.length > 0;
+    } catch (error) {
+      return false;
+    }
+  };
+
+  // Ganti dengan useEffect yang hanya menghapus selectedTournament dari localStorage
+  useEffect(() => {
+    if (isLoggedIn) {
+      // Hapus dari localStorage jika ada, tapi tidak otomatis memilih turnamen
+      localStorage.removeItem('selectedTournament');
+    }
+  }, [isLoggedIn]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-900 via-blue-700 to-blue-500">
@@ -505,6 +669,10 @@ export default function Home() {
           setWhatsapp={setWhatsapp}
           teamName={teamName}
           setTeamName={setTeamName}
+          captainNickname={captainNickname}
+          setCaptainNickname={setCaptainNickname}
+          captainGameId={captainGameId}
+          setCaptainGameId={setCaptainGameId}
           handlePayment={handlePayment}
           isFormValid={isFormValid}
           isLoading={isLoading}
@@ -517,6 +685,9 @@ export default function Home() {
           setEmailError={setEmailError}
           checkWhatsappAvailability={checkWhatsappAvailability}
           checkEmailAvailability={checkEmailAvailability}
+          isLoggedIn={isLoggedIn}
+          userData={userData}
+          error={error}
         />
       )}
 
@@ -539,9 +710,9 @@ export default function Home() {
       {showConfirmationModal && (
         <ConfirmationModal
           onConfirm={handleCancelPayment}
-          onDismiss={() => setShowConfirmationModal(false)}
-          isLoading={isLoading}
-          isLoadingDismiss={false}
+          onDismiss={() => handleCancelPayment(false)}
+          isLoading={isCancelLoading}
+          isLoadingDismiss={isLoadingDismiss}
         />
       )}
 

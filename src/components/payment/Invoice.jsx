@@ -14,15 +14,6 @@ export default function Invoice({ transactionData, order_id, invoiceRef, downloa
     return <p className="text-center text-red-500 font-medium">Data invoice tidak lengkap.</p>;
   }
 
-  // Konversi created_at ke waktu lokal untuk pengecekan kadaluarsa
-  const createdAt = new Date(transactionData.created_at);
-  const now = new Date();
-  const tenMinutes = 10 * 60 * 1000; // 10 menit dalam milidetik
-
-  if (now - createdAt > tenMinutes) {
-    return "Invoice sudah tidak dapat dilihat setelah 10 menit." ;
-  }
-
   return (
       <div
         className="bg-white shadow-xl rounded-xl p-8 w-full max-w-lg border border-gray-300 relative"

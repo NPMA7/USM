@@ -10,7 +10,7 @@ export default function WarningBanner() {
         <div className="ml-3">
           <h3 className="text-red-600 font-bold text-lg">PERHATIAN</h3>
           <p className="text-red-600 mt-1">
-            Invoice hanya dapat dilihat selama 10 menit setelah dibuat. Harap segera download invoice ini.
+            Harap segera download invoice ini untuk bukti pembayaran Anda.
           </p>
         </div>
       </div>

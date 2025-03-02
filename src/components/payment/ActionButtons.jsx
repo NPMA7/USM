@@ -13,10 +13,10 @@ export default function ActionButtons({ downloadInvoice }) {
       </button>
 
       <button
-        onClick={() => router.push('/')}
+        onClick={() => router.back()}
         className="w-full bg-gray-600 text-white font-semibold py-2 mt-3 rounded-lg shadow-lg hover:bg-gray-700 transition duration-300"
       >
-        Kembali ke Halaman Utama
+        Kembali ke Halaman Sebelumnya
       </button>
     </>
   );
