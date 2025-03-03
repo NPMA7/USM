@@ -33,10 +33,7 @@ export default function Home() {
   const [orderId, setOrderId] = useState(null);
   const [processingPayment, setProcessingPayment] = useState(false);
   const [preparingInvoice, setPreparingInvoice] = useState(false);
-  const [registeredTeams, setRegisteredTeams] = useState({
-    MobileLegend: 0,
-    FreeFire: 0,
-  });
+  const [registeredTeams, setRegisteredTeams] = useState(0);
   const totalTeams = 128; // Total tim yang bisa mendaftar
   const [isLoadingTeams, setIsLoadingTeams] = useState(true);
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
@@ -51,7 +48,8 @@ export default function Home() {
   const [teamData, setTeamData] = useState(null);
   const [showSessionExpiredModal, setShowSessionExpiredModal] = useState(false);
   const [tournamentData, setTournamentData] = useState([]);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [tournamentCount, setTournamentCount] = useState(0); // Menyimpan jumlah turnamen
+  const [tournamentName, setTournamentName] = useState("");
 
   // Cek status login pengguna
   useEffect(() => {
@@ -125,6 +123,9 @@ export default function Home() {
     setTournament(tournamentType);
     setAmount(selectedTournament.price);
     setShowForm(true);
+
+    // Kirimkan nama turnamen ke form registrasi
+    setTournamentName(selectedTournament.name);
   };
 
   // Fungsi untuk memeriksa ketersediaan nomor WhatsApp
@@ -179,13 +180,14 @@ export default function Home() {
     try {
       const { data, error } = await supabase
         .from('team_details')
-        .select('team_name'); // Ambil semua nama tim
-
+        .select('team_name')
+        .eq('tournament', tournament); // Tambahkan filter untuk turnamen yang sama
+  
       if (error) {
         console.error('Error checking team name availability:', error);
         return false;
       }
-
+  
       const existingTeamNames = data.map(team => team.team_name.toLowerCase());
       return !existingTeamNames.includes(teamName.toLowerCase());
     } catch (error) {
@@ -242,6 +244,7 @@ export default function Home() {
             email,
             whatsapp,
             tournament,
+            tournament_name: tournamentName,
             team_name: teamName,
             created_at: formattedTime
           };
@@ -393,10 +396,8 @@ export default function Home() {
     setShowConfirmationModal(false);
     
     if (confirmed) {
-      // Jika pengguna mengkonfirmasi pembatalan
       setIsCancelLoading(true);
       try {
-        // Lakukan pembatalan transaksi jika diperlukan
         const response = await fetch("/api/cancel-transaction", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -407,21 +408,30 @@ export default function Home() {
         
         if (result.success) {
           setSuccessMessage("Transaksi berhasil dibatalkan");
+          setShowSuccessModal(true);
+          
+          setName("");
+          setEmail("");
+          setWhatsapp("");
+          setTeamName("");
+          setCaptainNickname("");
+          setCaptainGameId("");
+          setShowForm(false);
+          setProcessingPayment(false);
         } else {
-          setSuccessMessage("Transaksi gagal dibatalkan, tetapi Anda dapat mencoba lagi nanti");
+          setSuccessMessage("Transaksi gagal dibatalkan");
+          setShowSuccessModal(true);
+          setProcessingPayment(false);
         }
         
-        // Reset form dan state
-        resetForm();
-        setShowForm(false);
-        setShowSuccessModal(true);
       } catch (error) {
-        setSuccessMessage("Terjadi kesalahan saat membatalkan transaksi");
+        setSuccessMessage("Error saat membatalkan transaksi");
         setShowSuccessModal(true);
+        setProcessingPayment(false);
       } finally {
         setIsCancelLoading(false);
+        setShowCancelModal(false);
         setIsLoading(false);
-        setProcessingPayment(false);
       }
     } else {
       // Jika pengguna ingin melanjutkan pembayaran
@@ -429,8 +439,8 @@ export default function Home() {
         // Buka kembali popup pembayaran
         openSnapPopup(snapToken);
       } else {
+        setShowCancelModal(false);
         setIsLoading(false);
-        setProcessingPayment(false);
       }
     }
   };
@@ -455,6 +465,8 @@ export default function Home() {
           setEmail("");
           setWhatsapp("");
           setTeamName("");
+          setCaptainNickname("");
+          setCaptainGameId("");
           setShowForm(false);
           setProcessingPayment(false);
         } else {
@@ -566,27 +578,35 @@ export default function Home() {
   useEffect(() => {
     const fetchRegisteredTeams = async () => {
       try {
-        // Ambil jumlah tim Mobile Legend yang sudah settlement
-        const { count: mlCount, error: mlError } = await supabase
-          .from('transactions')
-          .select('*', { count: 'exact' })
-          .eq('tournament', 'MobileLegend')
-          .eq('transaction_status', 'settlement'); // Hanya hitung yang sudah settlement
+        // Ambil semua turnamen yang ada
+        const { data: tournaments, error: tournamentError } = await supabase
+          .from('tournaments')
+          .select('game');
 
-        // Ambil jumlah tim Free Fire yang sudah settlement
-        const { count: ffCount, error: ffError } = await supabase
-          .from('transactions')
-          .select('*', { count: 'exact' })
-          .eq('tournament', 'FreeFire')
-          .eq('transaction_status', 'settlement'); // Hanya hitung yang sudah settlement
-
-        if (mlError || ffError) {
+        if (tournamentError || !tournaments) {
           return;
         }
 
+        // Inisialisasi objek untuk menyimpan jumlah tim per turnamen
+        const teamsCount = {};
+
+        // Untuk setiap turnamen, hitung jumlah tim yang sudah terdaftar
+        for (const tournament of tournaments) {
+          const { count, error } = await supabase
+            .from('transactions')
+            .select('*', { count: 'exact' })
+            .eq('tournament', tournament.game)
+            .eq('transaction_status', 'settlement');
+
+          if (!error) {
+            teamsCount[tournament.game] = count || 0;
+          }
+        }
+
         // Update state dengan jumlah tim dari database
-        updateRegisteredTeams('MobileLegend', mlCount || 0);
-        updateRegisteredTeams('FreeFire', ffCount || 0);
+        for (const [game, count] of Object.entries(teamsCount)) {
+          updateRegisteredTeams(game, count);
+        }
       } catch (error) {
         // Handle error
       }
@@ -631,7 +651,6 @@ export default function Home() {
     router.push('/auth/login');
   };
 
-  // Tambahkan useEffect untuk mengambil data turnamen dari database
   const fetchTournaments = async () => {
     setIsLoading(true);
     try {
@@ -649,47 +668,34 @@ export default function Home() {
     }
   };
 
-  // Tambahkan useEffect untuk memeriksa turnamen yang dipilih sebelumnya
-  useEffect(() => {
-    if (isLoggedIn) {
-      const selectedTournamentData = localStorage.getItem('selectedTournament');
-      if (selectedTournamentData) {
-        try {
-          const parsedData = JSON.parse(selectedTournamentData);
-          // Cari turnamen yang sesuai
-          const selectedTournament = tournamentData.find(
-            t => t.game === parsedData.type && t.id === parsedData.id
-          );
-          
-          if (selectedTournament) {
-            // Otomatis pilih turnamen jika ditemukan
-            handleTournamentSelect(parsedData.type, parsedData.id);
-          }
-          
-          // Hapus dari localStorage setelah digunakan
-          localStorage.removeItem('selectedTournament');
-        } catch (error) {
-          console.error('Error parsing selected tournament data:', error);
-          localStorage.removeItem('selectedTournament');
-        }
-      }
-    }
-  }, [isLoggedIn, tournamentData]);
-
-  const handleRefresh = async () => {
-    await fetchTournaments(); // Memanggil fungsi untuk mengambil data turnamen
-  };
-
-  const refreshTournamentData = async () => {
-    setIsLoading(true);
+  const checkTournamentCount = async () => {
     try {
-      await fetchTournaments(); // Memanggil fungsi untuk mengambil data turnamen
+      const { count, error } = await supabase
+        .from('tournaments')
+        .select('*', { count: 'exact' });
+
+      if (error) throw error;
+      if (count !== tournamentCount) {
+        setTournamentCount(count);
+        fetchTournaments(); // Refresh data jika jumlah turnamen berubah
+      }
     } catch (error) {
-      console.error('Error refreshing tournament data:', error);
-    } finally {
-      setIsLoading(false);
+      console.error('Error checking tournament count:', error);
     }
   };
+
+  useEffect(() => {
+    fetchTournaments();
+    checkTournamentCount(); // Cek jumlah turnamen saat pertama kali
+
+    // Polling setiap 5 detik untuk memeriksa jumlah turnamen
+    const intervalId = setInterval(() => {
+      checkTournamentCount();
+    }, 5000);
+
+    // Cleanup interval saat komponen unmount
+    return () => clearInterval(intervalId);
+  }, [tournamentCount]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-900 via-blue-700 to-blue-500">
@@ -740,42 +746,33 @@ export default function Home() {
             Pilih turnamen yang ingin kamu ikuti dan mulai perjalananmu menuju kemenangan!
           </p>
           
-          <button 
-            onClick={handleRefresh} 
-            className={`mb-4 px-4 py-2 bg-blue-600 text-white rounded ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`} 
-            disabled={isLoading}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 inline-block mr-2 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <circle className="opacity-25" cx="12" cy="12" r="10" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M12 2a10 10 0 00-7.071 17.071l1.414-1.414A8 8 0 1112 4v8h8a10 10 0 00-8-10z"></path>
-            </svg>
-            {isLoading ? ' Memuat...' : ' Refresh'}
-          </button>
-
           {isLoading ? (
             <p>Loading...</p>
           ) : (
-            <div className="grid md:grid-cols-2 gap-8">
-              {tournamentData.length > 0 ? (
-                tournamentData.map((tournament) => (
-                  <TournamentCard 
-                    key={tournament.id}
-                    title={tournament.name} 
-                    price={tournament.price} 
-                    image={tournament.image_url || "https://via.placeholder.com/400x200?text=Turnamen+Gaming"} 
-                    onSelect={handleTournamentSelect}
-                    type={tournament.game}
-                    description={tournament.description}
-                    registeredTeams={registeredTeams[tournament.game] || 0}
-                    maxTeams={tournament.max_teams}
-                    isLoading={isLoading}
-                    tournament={tournament}
-                    refreshTournamentData={refreshTournamentData}
-                  />
-                ))
-              ) : (
-                <p>Tidak ada turnamen yang tersedia saat ini.</p>
-              )}
+            <div className="flex justify-center">
+              <div className="flex flex-wrap gap-8 max-md:grid max-md:grid-cols-1 w-96 justify-center">
+                {tournamentData.length > 0 ? (
+                  tournamentData.map((tournament) => (
+                    <TournamentCard 
+                      key={tournament.id}
+                      title={tournament.name} 
+                      price={tournament.price} 
+                      image={tournament.image_url || "https://via.placeholder.com/400x200?text=Turnamen+Gaming"} 
+                      onSelect={handleTournamentSelect}
+                      type={tournament.game}
+                      description={tournament.description}
+                      registeredTeams={registeredTeams[tournament.game] || 0}
+                      maxTeams={tournament.max_teams}
+                      isLoading={isLoading}
+                      tournament={tournament}
+                      refreshTournamentData={fetchTournaments}
+                      game={tournament.game}
+                    />
+                  ))
+                ) : (
+                  <p>Tidak ada turnamen yang tersedia saat ini.</p>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -806,6 +803,7 @@ export default function Home() {
       {showForm && (
         <RegistrationForm 
           tournament={tournament}
+          tournamentName={tournamentName}
           amount={amount}
           name={name}
           setName={setName}

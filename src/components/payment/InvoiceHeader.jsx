@@ -1,4 +1,4 @@
-export default function InvoiceHeader({ tournament }) {
+export default function InvoiceHeader({ tournament, tournament_name }) {
   const handleChatCS = () => {
     window.open(`https://wa.me/6288222810681`, '_blank');
   };
@@ -6,7 +6,7 @@ export default function InvoiceHeader({ tournament }) {
   return (
     <div className="text-center">
       <h1 className="text-3xl font-bold text-gray-800">Invoice {tournament}</h1>
-      <p className="text-gray-500">Terima kasih telah melakukan pembayaran</p>
+      <p className="text-gray-500">Terima kasih telah melakukan pembayaran dan mengikuti event turnamen <span className="font-bold">{tournament_name}</span></p>
       
       <div className="mt-4 text-gray-600 text-sm text-center">
         <p className="mt-2 text-red-500 font-medium">

@@ -13,12 +13,15 @@ export default function TournamentCard({
   registeredTeams, 
   maxTeams = 128, // Default value jika tidak diberikan
   isLoading,
+  game,
   tournament
 }) {
   const { updateRegisteredTeams } = useTeams();
   const [isUserRegistered, setIsUserRegistered] = useState(false);
   const [checkingRegistration, setCheckingRegistration] = useState(true);
   const [tournamentStatus, setTournamentStatus] = useState(tournament.status);
+  const [currentMaxTeams, setCurrentMaxTeams] = useState(maxTeams);
+  
 
   useEffect(() => {
     const checkUserRegistration = async () => {
@@ -59,7 +62,7 @@ export default function TournamentCard({
       try {
         const { data, error } = await supabase
           .from('tournaments')
-          .select('status')
+          .select('status, max_teams')
           .eq('id', tournament.id)
           .single();
 
@@ -69,7 +72,8 @@ export default function TournamentCard({
         }
 
         if (data) {
-          setTournamentStatus(data.status); // Perbarui status turnamen
+          setTournamentStatus(data.status);
+          setCurrentMaxTeams(data.max_teams);
         }
       } catch (error) {
         console.error('Error fetching tournament status:', error);
@@ -111,7 +115,7 @@ export default function TournamentCard({
   }, [type, updateRegisteredTeams]);
 
   return (
-    <div className="bg-white rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+    <div className="bg-white w-full rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
       <div className="h-48 relative overflow-hidden">
         <img 
           src={image} 
@@ -140,7 +144,9 @@ export default function TournamentCard({
         </div>
       </div>
       
-      <div className="p-6">
+      <div className="px-6 pb-6">
+          <p className="text-xl my-2 font-bold">Game: {game}</p>
+
         <p className="text-gray-600 mb-4">{description}</p>
         
         <p className="text-gray-500 mb-4 text-base flex items-center">
@@ -161,14 +167,14 @@ export default function TournamentCard({
         ) : (
           <ProgressBar 
             current={registeredTeams} 
-            total={maxTeams} 
+            total={currentMaxTeams}
             tournament={type}
           />
         )}
 
         <button
           onClick={() => onSelect(type, tournament.id)}
-          disabled={isLoading || registeredTeams >= maxTeams || isUserRegistered || checkingRegistration || tournamentStatus !== 'open'}
+          disabled={isLoading || registeredTeams >= currentMaxTeams || isUserRegistered || checkingRegistration || tournamentStatus !== 'open'}
           className={`w-full mt-6 ${
             isLoading || checkingRegistration
               ? "bg-gray-300 text-gray-500 cursor-not-allowed" 
@@ -178,7 +184,7 @@ export default function TournamentCard({
                   ? "bg-yellow-500 text-white cursor-not-allowed"
                   : tournamentStatus === 'closed'
                     ? "bg-red-500 text-white cursor-not-allowed"
-                    : registeredTeams < maxTeams 
+                    : registeredTeams < currentMaxTeams 
                       ? "bg-blue-600 text-white hover:bg-blue-700" 
                       : "bg-gray-300 text-gray-500 cursor-not-allowed"
           } py-3 rounded-lg font-semibold transition duration-300 flex items-center justify-center`}
@@ -212,7 +218,7 @@ export default function TournamentCard({
               </svg>
               Turnamen Selesai
             </>
-          ) : registeredTeams >= maxTeams ? (
+          ) : registeredTeams >= currentMaxTeams ? (
             <>
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />

@@ -19,13 +19,29 @@ export default function Navbar() {
   useEffect(() => {
     const checkLoginStatus = () => {
       const userData = localStorage.getItem('user');
-      if (userData) {
-        setIsLoggedIn(true);
-        setUser(JSON.parse(userData));
-      } else {
+      const loginTime = localStorage.getItem('loginTime');
+
+      if (!userData) {
         setIsLoggedIn(false);
         setUser(null);
+        return;
       }
+
+      const currentTime = new Date().getTime();
+      const oneHour = 60 * 60 * 1000; // 1 jam dalam milidetik
+
+      if (loginTime && currentTime - parseInt(loginTime) > oneHour) {
+        // Logout otomatis jika sudah lebih dari 1 jam
+        localStorage.removeItem('user');
+        localStorage.removeItem('loginTime');
+        setShowSessionExpiredModal(true);
+        setIsLoggedIn(false);
+        setUser(null);
+        return;
+      }
+
+      setIsLoggedIn(true);
+      setUser(JSON.parse(userData));
     };
 
     checkLoginStatus();
@@ -47,12 +63,10 @@ export default function Navbar() {
 
   const handleLogout = () => {
     localStorage.removeItem('user');
-    setIsLoggedIn(false);
-    setUser(null);
-    setIsOpen(false);
-    router.push('/');
+    localStorage.removeItem('loginTime');
     // Trigger event storage
     window.dispatchEvent(new Event('storage'));
+    router.push('/auth/login');
   };
 
   const smoothScroll = (targetId) => {
@@ -237,19 +251,19 @@ export default function Navbar() {
                 {isLoggedIn ? (
                   // Menu untuk pengguna yang sudah login
                   <>
-                    <Link href="/profile" className="block px-4 py-2 text-gray-700 hover:bg-gray-100">
+                    <Link href="/profile" className="block px-4 py-2 text-gray-700 hover:bg-gray-100" onClick={closeDropdown}>
                       Profil Saya
                     </Link>
                     
                     {/* Tambahkan link Admin Panel untuk admin dan owner */}
                     {user && (user.role === 'admin' || user.role === 'owner') && (
-                      <Link href="/admin" className="block px-4 py-2 text-gray-700 hover:bg-gray-100">
+                      <Link href="/admin" className="block px-4 py-2 text-gray-700 hover:bg-gray-100" onClick={closeDropdown}>
                         Panel Admin
                       </Link>
                     )}
                     
                     <button
-                      onClick={handleLogout}
+                      onClick={() => { handleLogout(); closeDropdown(); }}
                       className="block w-full text-left px-4 py-2 text-red-600 hover:bg-gray-100"
                     >
                       Logout

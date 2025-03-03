@@ -20,7 +20,7 @@ export default function Invoice({ transactionData, order_id, invoiceRef, downloa
         ref={invoiceRef}
       >
         <div className="flex flex-col items-center">
-          <InvoiceHeader tournament={transactionData.tournament} />
+          <InvoiceHeader tournament={transactionData.tournament} tournament_name={transactionData.tournament_name} />
           <InvoiceDetails transactionData={transactionData} order_id={order_id} />
           <ActionButtons downloadInvoice={downloadInvoice} />
 

@@ -4,10 +4,7 @@ import React, { createContext, useContext, useState } from 'react';
 const TeamContext = createContext();
 
 export const TeamProvider = ({ children }) => {
-  const [registeredTeams, setRegisteredTeams] = useState({
-    MobileLegend: 0,
-    FreeFire: 0,
-  });
+  const [registeredTeams, setRegisteredTeams] = useState(0);
 
   const updateRegisteredTeams = (tournament, count) => {
     setRegisteredTeams((prev) => ({

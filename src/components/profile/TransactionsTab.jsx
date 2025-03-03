@@ -1,6 +1,20 @@
-import Link from 'next/link';
+'use client'
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import LoadingModal from '@/components/LoadingModal';
 
 const TransactionsTab = ({ transactions }) => {
+  const [loadingDetail, setLoadingDetail] = useState(false);
+  const router = useRouter();
+
+  const handleViewDetail = (orderId) => {
+    setLoadingDetail(true);
+    setTimeout(() => {
+      setLoadingDetail(false);
+      router.push(`/payment-success?order_id=${orderId}`);
+    }, 2000);
+  };
+
   return (
     <div>
       <h2 className="text-xl font-semibold mb-4">Riwayat Transaksi</h2>
@@ -58,12 +72,12 @@ const TransactionsTab = ({ transactions }) => {
                     {new Date(transaction.created_at).toLocaleDateString('id-ID')}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <Link
-                      href={`/payment-success?order_id=${transaction.order_id}`}
+                    <button
+                      onClick={() => handleViewDetail(transaction.order_id)}
                       className="text-blue-600 hover:text-blue-900"
                     >
                       Lihat Detail
-                    </Link>
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -75,6 +89,7 @@ const TransactionsTab = ({ transactions }) => {
           <p className="text-gray-500">Belum ada riwayat transaksi</p>
         </div>
       )}
+      {loadingDetail && <LoadingModal />}
     </div>
   );
 };

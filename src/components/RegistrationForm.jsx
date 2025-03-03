@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 
 export default function RegistrationForm({ 
   tournament, 
+  tournamentName,
   amount, 
   name, 
   setName, 
@@ -141,15 +142,17 @@ export default function RegistrationForm({
   // Fungsi untuk menangani submit form
   const handleSubmitForm = () => {
     if (teamDetailsValid) {
-      console.log("Mengirim data tim:", { captainNickname, captainGameId });
+      console.log("Mengirim data tim:", { captainNickname, captainGameId, tournamentName });
       
       // Kirim data transaksi dan detail tim
       handlePayment({
         captainNickname,
-        captainGameId
+        captainGameId,
+        tournamentName
       });
     }
   };
+
 
   return (
     <div className="fixed inset-0 bg-transparent backdrop-blur-xl  flex items-center justify-center p-4 z-50">
@@ -164,9 +167,13 @@ export default function RegistrationForm({
         </button>
 
         <h3 className="text-2xl font-bold text-center mb-6">
-          Form Pendaftaran {tournament === "MobileLegend" ? "Mobile Legends" : "Free Fire"}
+          Form Pendaftaran {tournament}
         </h3>
         
+        <h3 className="text-2xl font-bold text-center mb-6">
+          {tournamentName}
+        </h3>
+
         {/* Tampilkan pesan error jika ada */}
         {error && (
           <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4">
