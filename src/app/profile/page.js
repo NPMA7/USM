@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
@@ -20,6 +20,7 @@ const ProfilePage = () => {
   const [showTeamDetailsModal, setShowTeamDetailsModal] = useState(false);
   const [matchSchedules, setMatchSchedules] = useState([]);
   const router = useRouter();
+  const invoiceRef = useRef(null);
 
   useEffect(() => {
     // Cek apakah pengguna sudah login
@@ -106,9 +107,16 @@ const ProfilePage = () => {
     router.push('/');
   };
 
+  const refreshUserData = () => {
+    const userData = localStorage.getItem('user');
+    if (userData) {
+      setUser(JSON.parse(userData));
+    }
+  };
+
   if (loading) {
     return (
-      <div className="flex justify-center items-center min-h-screen">
+      <div className="flex justify-center items-center">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
       </div>
     );
@@ -117,9 +125,11 @@ const ProfilePage = () => {
   // Mendapatkan turnamen yang diikuti (unik)
   const tournaments = [...new Set(transactions.map(t => t.tournament))];
 
+  const tabHeightClass = activeTab === 'profile' ? 'h-full' : 'h-screen'; // Menentukan kelas tinggi berdasarkan tab aktif
+
   return (
-    <div className="max-w-4xl mx-auto p-4 mt-16 flex flex-col h-screen">
-      <div className="bg-white flex-1 rounded-xl shadow-lg overflow-auto">
+    <div id="profile-container" className="max-w-4xl h-full mx-auto p-4 mt-16 flex flex-col" ref={invoiceRef} style={{ width: '100%', overflow: 'visible' }}>
+      <div className="bg-white flex-1 rounded-xl shadow-lg overflow-visible" style={{ width: '100%' }}>
         {/* Header Profil */}
         <ProfileHeader user={user} />
 
@@ -127,9 +137,9 @@ const ProfilePage = () => {
         <TabNavigation activeTab={activeTab} setActiveTab={setActiveTab} />
 
         {/* Tab Content */}
-        <div className="p-6 flex-1">
+        <div id="profile-tab" className={`p-6 flex-1 ${tabHeightClass}`} style={{ width: '100%' }}>
           {activeTab === 'profile' ? (
-            <ProfileTab user={user} />
+            <ProfileTab user={user} refreshUserData={refreshUserData} />
           ) : activeTab === 'tournaments' ? (
             <TournamentsTab 
               tournaments={tournaments} 

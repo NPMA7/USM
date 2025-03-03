@@ -71,7 +71,7 @@ const TransactionsTab = ({ transactions }) => {
           </table>
         </div>
       ) : (
-        <div className="text-center py-8 bg-gray-50 rounded-lg">
+        <div className="text-center py-8 ">
           <p className="text-gray-500">Belum ada riwayat transaksi</p>
         </div>
       )}

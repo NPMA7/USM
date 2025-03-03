@@ -74,7 +74,7 @@ export default function Navbar() {
     setIsLoggedIn(false);
     setUser(null);
     setIsOpen(false);
-    window.location.href = '/';
+    router.push('/');
   };
 
   const smoothScroll = (targetId) => {
@@ -222,10 +222,14 @@ export default function Navbar() {
         {/* Gambar Profil dan Dropdown */}
         <div className="relative" ref={dropdownRef}>
           <img
-            src={isLoggedIn && user?.avatar ? user.avatar : "https://www.w3schools.com/w3images/avatar2.png"}
+            src={isLoggedIn && user?.avatar ? user.avatar : "/images/avatar2.png"}
             alt="Profile"
             className="w-10 h-10 rounded-full cursor-pointer border-2 border-gray-300 hover:border-yellow-400 transition duration-300"
             onClick={toggleDropdown}
+            onError={(e) => {
+              e.target.onerror = null;
+              e.target.src = '/images/avatar2.png';
+            }}
           />
           {isOpen && (
             <div className="absolute transform -translate-x-1/2 -left-14 mt-4 w-48 bg-white border border-gray-300 rounded-lg shadow-lg z-10 text-lg">

@@ -13,6 +13,7 @@
     "@supabase/supabase-js": "^2.49.1",
     "bcryptjs": "^3.0.2",
     "dom-to-image": "^2.6.0",
+    "dom-to-image-more": "^3.5.0",
     "html2canvas": "^1.4.1",
     "midtrans-client": "^1.4.2",
     "next": "15.2.0",

@@ -97,7 +97,10 @@ const LoginPage = () => {
   }
 
   return (
-    <div className="max-w-md mx-auto mt-20 p-6 bg-white rounded-lg shadow-lg">
+
+
+    <div className="max-w-md mx-auto mt-24 p-6 bg-white rounded-lg shadow-lg">
+    
       <h2 className="text-2xl font-bold mb-6 text-center text-blue-900">Masuk ke Akun Anda</h2>
       
       {error && (
@@ -155,6 +158,11 @@ const LoginPage = () => {
             Daftar di sini
           </Link>
         </p>
+        <p className="text-gray-600 mt-2">
+          <Link href="/auth/forgot-password" className="text-blue-600 hover:underline">
+            Lupa password?
+          </Link>
+        </p>
       </div>
       
       <div className="mt-6 border-t pt-4">
@@ -166,6 +174,7 @@ const LoginPage = () => {
         </button>
       </div>
     </div>
+
   );
 };
 

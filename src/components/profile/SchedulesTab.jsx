@@ -73,7 +73,7 @@ const SchedulesTab = ({ matchSchedules }) => {
           ))}
         </div>
       ) : (
-        <div className="text-center  py-8 bg-gray-50 rounded-lg">
+        <div className="text-center py-8 ">
           <p className="text-gray-500">Belum ada jadwal pertandingan</p>
           <p className="text-sm text-gray-400 mt-2">Jadwal akan muncul setelah tim Anda terdaftar dan bracket turnamen dibuat</p>
         </div>

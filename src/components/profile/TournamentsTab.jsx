@@ -63,7 +63,7 @@ const TournamentsTab = ({ tournaments, transactions, fetchTeamDetails }) => {
           })}
         </div>
       ) : (
-        <div className="text-center py-8 bg-gray-50 rounded-lg">
+        <div className="text-center py-8  rounded-lg">
           <p className="text-gray-500">Anda belum mengikuti turnamen apapun</p>
           <Link
             href="/#tournaments"
