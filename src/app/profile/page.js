@@ -23,6 +23,8 @@ const ProfilePage = () => {
   const [showSessionExpiredModal, setShowSessionExpiredModal] = useState(false);
   const router = useRouter();
   const invoiceRef = useRef(null);
+  const [userTeamId, setUserTeamId] = useState(null);
+  const [userTeamName, setUserTeamName] = useState('');
 
   useEffect(() => {
     // Cek apakah pengguna sudah login
@@ -84,20 +86,105 @@ const ProfilePage = () => {
       if (!user) return;
 
       try {
-        const { data, error } = await supabase
-          .from('match_schedules')
+        const { data: userTransactions, error: transactionError } = await supabase
+          .from('transactions')
           .select('*')
           .eq('email', user.email)
-          .order('match_date', { ascending: true });
+          .eq('transaction_status', 'settlement');
 
-        if (error) throw error;
-        setMatchSchedules(data || []);
+        if (transactionError) throw transactionError;
+
+        if (!userTransactions || userTransactions.length === 0) {
+          setMatchSchedules([]);
+          return;
+        }
+
+        const teamOrderIds = userTransactions.map(t => t.order_id);
+        const { data: teamDetails, error: teamError } = await supabase
+          .from('team_details')
+          .select('*')
+          .in('order_id', teamOrderIds);
+
+        if (teamError) throw teamError;
+
+        if (!teamDetails || teamDetails.length === 0) {
+          setMatchSchedules([]);
+          return;
+        }
+
+        const teamIds = teamDetails.map(team => team.id);
+        const { data: matches, error: matchError } = await supabase
+          .from('match_schedules')
+          .select(`
+            *,
+            tournaments:tournament_id(name, game),
+            team1:team_details!team1_id(team_name),
+            team2:team_details!team2_id(team_name)
+          `)
+          .or(`team1_id.in.(${teamIds}),team2_id.in.(${teamIds})`);
+
+        if (matchError) throw matchError;
+
+        const transformedMatches = matches.map(match => ({
+          id: match.id,
+          tournament_name: match.tournaments?.name || 'Unknown Tournament',
+          game_type: match.tournaments?.game || 'Unknown Game',
+          match_date: match.match_date,
+          match_link: match.match_link,
+          status: match.status || 'upcoming',
+          round_name: match.round,
+          team1_name: match.team1?.team_name,
+          team2_name: match.team2?.team_name,
+          team1_score: match.team1_score,
+          team2_score: match.team2_score,
+          winning_team_name: match.winning_team_name || 'Belum ada hasil',
+          losing_team_name: match.losing_team_name || 'Belum ada hasil',
+        }));
+
+        setMatchSchedules(transformedMatches);
       } catch (error) {
         console.error('Error fetching match schedules:', error);
       }
     };
 
     fetchMatchSchedules();
+  }, [user]);
+
+  useEffect(() => {
+    const fetchUserTeamDetails = async () => {
+      if (!user) return;
+
+      try {
+        const { data: userTransactions, error: transactionError } = await supabase
+          .from('transactions')
+          .select('*')
+          .eq('email', user.email)
+          .eq('transaction_status', 'settlement');
+
+        if (transactionError) throw transactionError;
+
+        if (!userTransactions || userTransactions.length === 0) {
+          return;
+        }
+
+        const teamOrderIds = userTransactions.map(t => t.order_id);
+        const { data: teamDetails, error: teamError } = await supabase
+          .from('team_details')
+          .select('*')
+          .in('order_id', teamOrderIds);
+
+        if (teamError) throw teamError;
+
+        if (teamDetails && teamDetails.length > 0) {
+          setUserTeamId(teamDetails[0]?.id); // Ambil ID tim pertama
+          setUserTeamName(teamDetails[0]?.team_name); // Ambil nama tim
+        }
+      } catch (error) {
+        console.error('Error fetching user team details:', error);
+      }
+    };
+
+    fetchUserTeamDetails();
   }, [user]);
 
   const fetchTeamDetails = async (orderId) => {
@@ -124,6 +211,8 @@ const ProfilePage = () => {
   const handleLogout = () => {
     localStorage.removeItem('user');
     localStorage.removeItem('loginTime');
+    // Trigger event storage
+    window.dispatchEvent(new Event('storage'));
     router.push('/');
   };
 
@@ -173,7 +262,7 @@ const ProfilePage = () => {
               fetchTeamDetails={fetchTeamDetails} 
             />
           ) : activeTab === 'schedules' ? (
-            <SchedulesTab matchSchedules={matchSchedules} />
+            <SchedulesTab matchSchedules={matchSchedules} userTeamId={userTeamId} userTeamName={userTeamName} />
           ) : (
             <TransactionsTab transactions={transactions} />
           )}

@@ -50,6 +50,8 @@ export default function Home() {
   const [error, setError] = useState("");
   const [teamData, setTeamData] = useState(null);
   const [showSessionExpiredModal, setShowSessionExpiredModal] = useState(false);
+  const [tournamentData, setTournamentData] = useState([]);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Cek status login pengguna
   useEffect(() => {
@@ -91,11 +93,14 @@ export default function Home() {
     checkLoginStatus();
   }, []);
 
-  const handleTournamentSelect = async (tournamentType) => {
+  const handleTournamentSelect = async (tournamentType, tournamentId) => {
     // Cek apakah pengguna sudah login
     if (!isLoggedIn) {
-      // Simpan jenis turnamen yang dipilih ke localStorage
-      localStorage.setItem('selectedTournament', tournamentType);
+      // Simpan jenis turnamen yang dipilih ke localStorage dengan informasi lebih lengkap
+      localStorage.setItem('selectedTournament', JSON.stringify({
+        type: tournamentType,
+        id: tournamentId
+      }));
       // Redirect ke halaman login
       router.push('/auth/login');
       return;
@@ -109,8 +114,16 @@ export default function Home() {
       return;
     }
 
+    // Cari data turnamen yang dipilih
+    const selectedTournament = tournamentData.find(t => t.game === tournamentType && t.id === tournamentId);
+    
+    if (!selectedTournament) {
+      alert("Turnamen tidak ditemukan. Silakan coba lagi.");
+      return;
+    }
+
     setTournament(tournamentType);
-    setAmount(tournamentType === "MobileLegend" ? 35000 : 25000);
+    setAmount(selectedTournament.price);
     setShowForm(true);
   };
 
@@ -159,6 +172,25 @@ export default function Home() {
       }
     } catch (error) {
       // Handle error
+    }
+  };
+
+  const checkTeamNameAvailability = async (teamName) => {
+    try {
+      const { data, error } = await supabase
+        .from('team_details')
+        .select('team_name'); // Ambil semua nama tim
+
+      if (error) {
+        console.error('Error checking team name availability:', error);
+        return false;
+      }
+
+      const existingTeamNames = data.map(team => team.team_name.toLowerCase());
+      return !existingTeamNames.includes(teamName.toLowerCase());
+    } catch (error) {
+      console.error('Error:', error);
+      return false;
     }
   };
 
@@ -282,6 +314,13 @@ export default function Home() {
 
   const handlePayment = async (teamDetails) => {
     if (!isFormValid()) return;
+
+    // Validasi nama tim
+    const isTeamNameAvailable = await checkTeamNameAvailability(teamName);
+    if (!isTeamNameAvailable) {
+      alert("Nama tim sudah terdaftar. Silakan pilih nama tim lain.");
+      return;
+    }
 
     // Simpan data tim ke state dan localStorage
     setTeamData(teamDetails);
@@ -463,35 +502,40 @@ export default function Home() {
   // Mengambil data jumlah tim terdaftar dari Supabase saat komponen dimuat
   useEffect(() => {
     const fetchRegisteredTeams = async () => {
-      setIsLoadingTeams(true); // Set loading menjadi true saat mulai fetch
+      setIsLoadingTeams(true);
       try {
-        // Ambil jumlah tim Mobile Legend yang sudah settlement
-        const { count: mlCount, error: mlError } = await supabase
-          .from('transactions')
-          .select('*', { count: 'exact' })
-          .eq('tournament', 'MobileLegend')
-          .eq('transaction_status', 'settlement'); // Hanya hitung yang sudah settlement
+        // Ambil semua turnamen yang ada
+        const { data: tournaments, error: tournamentError } = await supabase
+          .from('tournaments')
+          .select('id, game');
         
-        // Ambil jumlah tim Free Fire yang sudah settlement
-        const { count: ffCount, error: ffError } = await supabase
-          .from('transactions')
-          .select('*', { count: 'exact' })
-          .eq('tournament', 'FreeFire')
-          .eq('transaction_status', 'settlement'); // Hanya hitung yang sudah settlement
-        
-        if (mlError || ffError) {
+        if (tournamentError) {
+          console.error('Error mengambil data turnamen:', tournamentError);
           return;
         }
         
+        // Inisialisasi objek untuk menyimpan jumlah tim per turnamen
+        const teamsCount = {};
+        
+        // Untuk setiap turnamen, hitung jumlah tim yang sudah terdaftar
+        for (const tournament of tournaments) {
+          const { count, error } = await supabase
+            .from('transactions')
+            .select('*', { count: 'exact' })
+            .eq('tournament', tournament.game)
+            .eq('transaction_status', 'settlement');
+          
+          if (!error) {
+            teamsCount[tournament.game] = count || 0;
+          }
+        }
+        
         // Update state dengan jumlah tim dari database
-        setRegisteredTeams({
-          MobileLegend: mlCount || 0,
-          FreeFire: ffCount || 0
-        });
+        setRegisteredTeams(teamsCount);
       } catch (error) {
-        // Handle error
+        console.error('Error:', error);
       } finally {
-        setIsLoadingTeams(false); // Set loading menjadi false setelah selesai
+        setIsLoadingTeams(false);
       }
     };
     
@@ -587,6 +631,66 @@ export default function Home() {
     router.push('/auth/login');
   };
 
+  // Tambahkan useEffect untuk mengambil data turnamen dari database
+  const fetchTournaments = async () => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('tournaments')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setTournamentData(data || []);
+    } catch (error) {
+      console.error('Error mengambil data turnamen:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Tambahkan useEffect untuk memeriksa turnamen yang dipilih sebelumnya
+  useEffect(() => {
+    if (isLoggedIn) {
+      const selectedTournamentData = localStorage.getItem('selectedTournament');
+      if (selectedTournamentData) {
+        try {
+          const parsedData = JSON.parse(selectedTournamentData);
+          // Cari turnamen yang sesuai
+          const selectedTournament = tournamentData.find(
+            t => t.game === parsedData.type && t.id === parsedData.id
+          );
+          
+          if (selectedTournament) {
+            // Otomatis pilih turnamen jika ditemukan
+            handleTournamentSelect(parsedData.type, parsedData.id);
+          }
+          
+          // Hapus dari localStorage setelah digunakan
+          localStorage.removeItem('selectedTournament');
+        } catch (error) {
+          console.error('Error parsing selected tournament data:', error);
+          localStorage.removeItem('selectedTournament');
+        }
+      }
+    }
+  }, [isLoggedIn, tournamentData]);
+
+  const handleRefresh = async () => {
+    await fetchTournaments(); // Memanggil fungsi untuk mengambil data turnamen
+  };
+
+  const refreshTournamentData = async () => {
+    setIsLoading(true);
+    try {
+      await fetchTournaments(); // Memanggil fungsi untuk mengambil data turnamen
+    } catch (error) {
+      console.error('Error refreshing tournament data:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-900 via-blue-700 to-blue-500">
       {/* Hero Section */}
@@ -635,30 +739,45 @@ export default function Home() {
           <p className="text-center text-gray-600 mb-12 max-w-2xl mx-auto">
             Pilih turnamen yang ingin kamu ikuti dan mulai perjalananmu menuju kemenangan!
           </p>
+          
+          <button 
+            onClick={handleRefresh} 
+            className={`mb-4 px-4 py-2 bg-blue-600 text-white rounded ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`} 
+            disabled={isLoading}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 inline-block mr-2 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <circle className="opacity-25" cx="12" cy="12" r="10" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M12 2a10 10 0 00-7.071 17.071l1.414-1.414A8 8 0 1112 4v8h8a10 10 0 00-8-10z"></path>
+            </svg>
+            {isLoading ? ' Memuat...' : ' Refresh'}
+          </button>
 
-          <div className="grid md:grid-cols-2 gap-8">
-            <TournamentCard 
-              title="Mobile Legends" 
-              price={35000} 
-              image="https://i.pinimg.com/originals/ec/fe/91/ecfe91596fffa8eefc1860de6b8d92bd.jpg" 
-              onSelect={handleTournamentSelect}
-              type="MobileLegend"
-              description="Turnamen 5v5 MOBA terpopuler dengan format Best of 3 untuk babak penyisihan dan Best of 5 untuk grand final."
-              registeredTeams={registeredTeams.MobileLegend}
-              isLoading={isLoadingTeams}
-            />
-            
-            <TournamentCard 
-              title="Free Fire" 
-              price={25000} 
-              image="https://wallpapers.com/images/hd/free-fire-banner-with-complete-cast-5vfv6tj9bc7x37rw.jpg" 
-              onSelect={handleTournamentSelect}
-              type="FreeFire"
-              description="Turnamen battle royale dengan 4 orang per tim. Poin dihitung berdasarkan peringkat dan jumlah kill."
-              registeredTeams={registeredTeams.FreeFire}
-              isLoading={isLoadingTeams}
-            />
-          </div>
+          {isLoading ? (
+            <p>Loading...</p>
+          ) : (
+            <div className="grid md:grid-cols-2 gap-8">
+              {tournamentData.length > 0 ? (
+                tournamentData.map((tournament) => (
+                  <TournamentCard 
+                    key={tournament.id}
+                    title={tournament.name} 
+                    price={tournament.price} 
+                    image={tournament.image_url || "https://via.placeholder.com/400x200?text=Turnamen+Gaming"} 
+                    onSelect={handleTournamentSelect}
+                    type={tournament.game}
+                    description={tournament.description}
+                    registeredTeams={registeredTeams[tournament.game] || 0}
+                    maxTeams={tournament.max_teams}
+                    isLoading={isLoading}
+                    tournament={tournament}
+                    refreshTournamentData={refreshTournamentData}
+                  />
+                ))
+              ) : (
+                <p>Tidak ada turnamen yang tersedia saat ini.</p>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -715,6 +834,7 @@ export default function Home() {
           isLoggedIn={isLoggedIn}
           userData={userData}
           error={error}
+          checkTeamNameAvailability={checkTeamNameAvailability}
         />
       )}
 

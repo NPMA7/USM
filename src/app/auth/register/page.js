@@ -40,6 +40,10 @@ const RegisterPage = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const totalSteps = 3;
 
+  // Tambahkan state untuk mengontrol visibilitas password
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
   // Fungsi untuk memeriksa apakah tombol daftar harus dinonaktifkan
   const isDisableButton = () => {
     // Cek apakah semua field sudah diisi
@@ -301,9 +305,11 @@ const RegisterPage = () => {
         formattedValue = '62' + value; // Menambahkan 62 jika tidak diawali dengan 62
       }
 
-      // Menghilangkan angka 0 setelah 62
+      // Menghilangkan angka 0 dan 6 setelah 62
       if (formattedValue.startsWith('620')) {
         formattedValue = formattedValue.replace('620', '62'); // Menghapus 0 setelah 62
+      } else if (formattedValue.startsWith('626')) {
+        formattedValue = formattedValue.replace('626', '62'); // Menghapus 6 setelah 62
       }
 
       setWhatsapp(formattedValue);
@@ -384,79 +390,51 @@ const RegisterPage = () => {
   // Handler untuk pendaftaran
   const handleRegister = async (e) => {
     e.preventDefault();
-    setError(null);
-    setSuccess(null);
-    setLoading(true);
-
-    // Validasi password
-    if (password.length < 6) {
-      setLoading(false);
-      setPasswordError('Password harus terdiri dari minimal 6 karakter.');
-      return;
-    }
-
-    // Validasi konfirmasi password
+    
     if (password !== confirmPassword) {
-      setLoading(false);
-      setError('Konfirmasi password tidak cocok.');
+      setError('Konfirmasi password tidak cocok');
       return;
     }
-
-    // Cek ketersediaan username, email, dan WhatsApp sebelum mendaftar
-    if (usernameError || emailError || whatsappError) {
-      setLoading(false);
-      return;
-    }
-
-    // Pastikan email sudah diverifikasi
-    if (!emailVerified) {
-      setLoading(false);
-      setError('Email harus diverifikasi terlebih dahulu.');
-      return;
-    }
-
-    // Format nomor WhatsApp
-    let formattedWhatsapp = whatsapp;
-    if (whatsapp.startsWith('0')) {
-      formattedWhatsapp = '62' + whatsapp.substring(1);
-    } else if (!whatsapp.startsWith('62')) {
-      formattedWhatsapp = '62' + whatsapp;
-    }
-
+    
+    setLoading(true);
+    setError('');
+    
     try {
-      // Hash password sebelum menyimpan ke database
-      const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash(password, salt);
+      // Hash password menggunakan bcrypt
+      const hashedPassword = await bcrypt.hash(password, 10); // 10 adalah jumlah salt rounds
+
+      // Gunakan API endpoint untuk registrasi
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name,
+          email,
+          password: hashedPassword, // Kirim password yang sudah di-hash
+          username,
+          whatsapp
+        }),
+      });
       
-      // Buat objek user dengan password yang sudah di-hash
-      const newUser = {
-        name,
-        username,
-        email,
-        whatsapp: formattedWhatsapp,
-        password: hashedPassword, // Gunakan password yang sudah di-hash
-        email_verified: true,
-      };
-
-      // Simpan data pengguna ke tabel 'users'
-      const { data, error: insertError } = await supabase
-        .from('users')
-        .insert([newUser])
-        .select();
-
-      if (insertError) {
-        setLoading(false);
-        setError(insertError.message);
-      } else {
-        // Simpan data pengguna ke localStorage
-        localStorage.setItem('user', JSON.stringify(data[0]));
-        
-        // Redirect langsung ke halaman profil
-        router.push('/profile');
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(result.error || 'Gagal melakukan registrasi');
       }
+      
+      // Registrasi berhasil
+      setSuccess('Registrasi berhasil! Silakan login.');
+      
+      // Redirect ke halaman profil setelah 1 detik
+      setTimeout(() => {
+        router.push('/login'); // Arahkan ke halaman profil
+      }, 1000);
     } catch (error) {
-      setLoading(false);
       setError(error.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -628,7 +606,7 @@ const RegisterPage = () => {
             {showOtpForm && !emailVerified && (
               <div className="flex space-x-2 mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
                 <input
-                  type="text"
+                  type="number"
                   id="otp"
                   placeholder="Masukkan kode OTP"
                   value={otp}
@@ -707,7 +685,7 @@ const RegisterPage = () => {
                 Password
               </label>
               <input
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 id="password"
                 placeholder="Masukkan password"
                 value={password}
@@ -717,6 +695,13 @@ const RegisterPage = () => {
                   passwordError ? 'border-red-500' : ''
                 }`}
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-3 text-gray-500"
+              >
+                {showPassword ? 'Sembunyikan' : 'Tampilkan'}
+              </button>
               {passwordError && (
                 <p className="text-xs text-red-500 mt-1">{passwordError}</p>
               )}
@@ -727,7 +712,7 @@ const RegisterPage = () => {
                 Konfirmasi Password
               </label>
               <input
-                type="password"
+                type={showConfirmPassword ? 'text' : 'password'}
                 id="confirmPassword"
                 placeholder="Konfirmasi password"
                 value={confirmPassword}
@@ -737,6 +722,13 @@ const RegisterPage = () => {
                   password !== confirmPassword && confirmPassword ? 'border-red-500' : ''
                 }`}
               />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="absolute right-3 top-3 text-gray-500"
+              >
+                {showConfirmPassword ? 'Sembunyikan' : 'Tampilkan'}
+              </button>
               {password !== confirmPassword && confirmPassword && (
                 <p className="text-xs text-red-500 mt-1">Password tidak cocok</p>
               )}

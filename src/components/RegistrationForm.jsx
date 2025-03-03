@@ -29,11 +29,13 @@ export default function RegistrationForm({
   checkEmailAvailability,
   isLoggedIn,
   userData,
-  error
+  error,
+  checkTeamNameAvailability
 }) {
   // State untuk form kedua (detail tim)
   const [currentStep, setCurrentStep] = useState(1); // 1: Form transaksi, 2: Form detail tim
   const [teamDetailsValid, setTeamDetailsValid] = useState(false);
+  const [teamNameError, setTeamNameError] = useState("");
 
   // Gunakan useEffect untuk mengisi form dengan data pengguna dari database
   // ketika komponen dimuat
@@ -75,9 +77,25 @@ export default function RegistrationForm({
     }
   };
 
+  const handleTeamNameChange = async (e) => {
+    const value = e.target.value;
+    setTeamName(value);
+
+    if (value.trim() !== "") {
+      const isAvailable = await checkTeamNameAvailability(value);
+      if (!isAvailable) {
+        setTeamNameError("Nama tim sudah terdaftar. Silakan pilih nama lain.");
+      } else {
+        setTeamNameError("");
+      }
+    } else {
+      setTeamNameError("");
+    }
+  };
+
   // Fungsi untuk memeriksa apakah form valid
   const isFormReadyForSubmit = () => {
-    return isFormValid() && !whatsappError && !emailError;
+    return isFormValid() && !whatsappError && !emailError && !teamNameError;
   };
 
   // Fungsi untuk memeriksa apakah form detail tim valid
@@ -102,7 +120,14 @@ export default function RegistrationForm({
   };
 
   // Fungsi untuk menangani klik tombol lanjut
-  const handleNextStep = () => {
+  const handleNextStep = async () => {
+    // Validasi nama tim sebelum melanjutkan
+    const isTeamNameAvailable = await checkTeamNameAvailability(teamName);
+    if (!isTeamNameAvailable) {
+      setTeamNameError("Nama tim sudah terdaftar. Silakan pilih nama lain.");
+      return; // Jangan lanjutkan jika nama tim sudah terdaftar
+    }
+
     if (isFormReadyForSubmit()) {
       setCurrentStep(2);
     }
@@ -230,12 +255,13 @@ export default function RegistrationForm({
               <input
                 type="text"
                 value={teamName}
-                onChange={(e) => setTeamName(e.target.value)}
+                onChange={handleTeamNameChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Masukkan nama tim"
                 required
                 disabled={isLoading || processingPayment || preparingInvoice}
               />
+              {teamNameError && <p className="text-red-500 text-xs mt-1">{teamNameError}</p>}
             </div>
 
             <div className="bg-blue-50 p-4 rounded-md">

@@ -51,9 +51,10 @@ const TournamentsTab = ({ tournaments, transactions, fetchTeamDetails }) => {
                       })}
                     </p>
                   </div>
+             
                   <button
                     onClick={() => fetchTeamDetails(latestTransaction.order_id)}
-                    className="mt-2 inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300"
+                    className="mt-2 w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300"
                   >
                     Lihat Detail Tim
                   </button>
@@ -63,7 +64,7 @@ const TournamentsTab = ({ tournaments, transactions, fetchTeamDetails }) => {
           })}
         </div>
       ) : (
-        <div className="text-center py-8  rounded-lg">
+        <div className="text-center py-8 bg-gray-50 rounded-lg">
           <p className="text-gray-500">Anda belum mengikuti turnamen apapun</p>
           <Link
             href="/#tournaments"

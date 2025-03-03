@@ -258,7 +258,7 @@ useEffect(() => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-14">
       <div>
         <h2 className="text-lg mb-6 font-semibold md:text-2xl">Informasi Pribadi</h2>
 

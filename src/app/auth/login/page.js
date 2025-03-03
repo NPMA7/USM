@@ -77,13 +77,23 @@ const LoginPage = () => {
       localStorage.setItem('user', JSON.stringify(user));
       localStorage.setItem('loginTime', loginTime);
       
-      const selectedTournament = localStorage.getItem('selectedTournament');
-      if (selectedTournament) {
-        // Jika ada turnamen yang dipilih sebelumnya, arahkan ke halaman utama
-        router.push('/');
+      // Trigger event storage
+      window.dispatchEvent(new Event('storage'));
+
+      // Cek role pengguna
+      if (user.role === 'admin' || user.role === 'owner') {
+        // Jika admin atau owner, arahkan ke halaman admin
+        router.push('/admin');
       } else {
-        // Jika tidak ada, arahkan ke halaman profil
-        router.push('/profile');
+        // Jika bukan admin/owner, cek apakah ada turnamen yang dipilih sebelumnya
+        const selectedTournamentData = localStorage.getItem('selectedTournament');
+        if (selectedTournamentData) {
+          // Jika ada turnamen yang dipilih sebelumnya, arahkan ke halaman utama
+          router.push('/');
+        } else {
+          // Jika tidak ada, arahkan ke halaman profil
+          router.push('/profile');
+        }
       }
     } catch (error) {
       setError(error.message);
