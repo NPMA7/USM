@@ -10,6 +10,7 @@ import TournamentsTab from '@/components/profile/TournamentsTab';
 import SchedulesTab from '@/components/profile/SchedulesTab';
 import TransactionsTab from '@/components/profile/TransactionsTab';
 import TeamDetailsModal from '@/components/profile/TeamDetailsModal';
+import SessionExpiredModal from '@/components/SessionExpiredModal';
 
 const ProfilePage = () => {
   const [user, setUser] = useState(null);
@@ -19,6 +20,7 @@ const ProfilePage = () => {
   const [teamDetails, setTeamDetails] = useState(null);
   const [showTeamDetailsModal, setShowTeamDetailsModal] = useState(false);
   const [matchSchedules, setMatchSchedules] = useState([]);
+  const [showSessionExpiredModal, setShowSessionExpiredModal] = useState(false);
   const router = useRouter();
   const invoiceRef = useRef(null);
 
@@ -26,10 +28,27 @@ const ProfilePage = () => {
     // Cek apakah pengguna sudah login
     const checkUser = () => {
       const userData = localStorage.getItem('user');
+      const loginTime = localStorage.getItem('loginTime');
+      
       if (!userData) {
         router.push('/auth/login');
         return;
       }
+      
+      // Cek waktu login
+      if (loginTime) {
+        const currentTime = new Date().getTime();
+        const oneHour = 60 * 60 * 1000; // 1 jam dalam milidetik
+        
+        if (currentTime - parseInt(loginTime) > oneHour) {
+          // Logout otomatis jika sudah lebih dari 1 jam
+          localStorage.removeItem('user');
+          localStorage.removeItem('loginTime');
+          setShowSessionExpiredModal(true);
+          return;
+        }
+      }
+      
       setUser(JSON.parse(userData));
       setLoading(false);
     };
@@ -104,6 +123,7 @@ const ProfilePage = () => {
 
   const handleLogout = () => {
     localStorage.removeItem('user');
+    localStorage.removeItem('loginTime');
     router.push('/');
   };
 
@@ -112,6 +132,12 @@ const ProfilePage = () => {
     if (userData) {
       setUser(JSON.parse(userData));
     }
+  };
+
+  // Tambahkan handler untuk menutup modal
+  const handleCloseSessionModal = () => {
+    setShowSessionExpiredModal(false);
+    router.push('/auth/login');
   };
 
   if (loading) {
@@ -178,6 +204,11 @@ const ProfilePage = () => {
           teamDetails={teamDetails} 
           setShowTeamDetailsModal={setShowTeamDetailsModal} 
         />
+      )}
+
+      {/* Tambahkan modal di akhir komponen */}
+      {showSessionExpiredModal && (
+        <SessionExpiredModal onClose={handleCloseSessionModal} />
       )}
     </div>
   );

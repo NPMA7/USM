@@ -11,6 +11,7 @@ import InfoSection from "@/components/InfoSection";
 import { supabase } from "@/lib/supabase"; // Mengimpor supabase dari lib
 import { useTeams } from "@/context/TeamContext";
 import { useRouter } from "next/navigation";
+import SessionExpiredModal from '@/components/SessionExpiredModal';
 
 export default function Home() {
   const router = useRouter();
@@ -48,13 +49,33 @@ export default function Home() {
   const [userData, setUserData] = useState(null);
   const [error, setError] = useState("");
   const [teamData, setTeamData] = useState(null);
+  const [showSessionExpiredModal, setShowSessionExpiredModal] = useState(false);
 
   // Cek status login pengguna
   useEffect(() => {
     const checkLoginStatus = () => {
       const user = localStorage.getItem('user');
+      const loginTime = localStorage.getItem('loginTime');
+      
       if (user) {
         const parsedUser = JSON.parse(user);
+        
+        // Cek waktu login
+        if (loginTime) {
+          const currentTime = new Date().getTime();
+          const oneHour = 60 * 60 * 1000; // 1 jam dalam milidetik
+          
+          if (currentTime - parseInt(loginTime) > oneHour) {
+            // Logout otomatis jika sudah lebih dari 1 jam
+            localStorage.removeItem('user');
+            localStorage.removeItem('loginTime');
+            setShowSessionExpiredModal(true);
+            setIsLoggedIn(false);
+            setUserData(null);
+            return;
+          }
+        }
+        
         setIsLoggedIn(true);
         setUserData(parsedUser);
         // Pre-fill form dengan data pengguna
@@ -560,6 +581,12 @@ export default function Home() {
     }
   }, [isLoggedIn]);
 
+  // Tambahkan handler untuk menutup modal
+  const handleCloseSessionModal = () => {
+    setShowSessionExpiredModal(false);
+    router.push('/auth/login');
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-900 via-blue-700 to-blue-500">
       {/* Hero Section */}
@@ -714,6 +741,10 @@ export default function Home() {
           isLoading={isCancelLoading}
           isLoadingDismiss={isLoadingDismiss}
         />
+      )}
+
+      {showSessionExpiredModal && (
+        <SessionExpiredModal onClose={handleCloseSessionModal} />
       )}
 
     </div>

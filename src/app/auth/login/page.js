@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import bcrypt from 'bcryptjs';
 
 const LoginPage = () => {
   const [identifier, setIdentifier] = useState('');
@@ -64,13 +65,17 @@ const LoginPage = () => {
 
       const user = userData[0];
       
-      // Verifikasi password (dalam kasus nyata, gunakan bcrypt atau metode hash lainnya)
-      if (user.password !== password) {
+      // Verifikasi password menggunakan bcrypt
+      const isPasswordValid = await bcrypt.compare(password, user.password);
+      
+      if (!isPasswordValid) {
         throw new Error('Email/username atau password salah');
       }
 
       // Login berhasil, simpan data pengguna ke localStorage atau state global
+      const loginTime = new Date().getTime();
       localStorage.setItem('user', JSON.stringify(user));
+      localStorage.setItem('loginTime', loginTime);
       
       const selectedTournament = localStorage.getItem('selectedTournament');
       if (selectedTournament) {
@@ -97,8 +102,6 @@ const LoginPage = () => {
   }
 
   return (
-
-
     <div className="max-w-md mx-auto mt-24 p-6 bg-white rounded-lg shadow-lg">
     
       <h2 className="text-2xl font-bold mb-6 text-center text-blue-900">Masuk ke Akun Anda</h2>
@@ -174,7 +177,6 @@ const LoginPage = () => {
         </button>
       </div>
     </div>
-
   );
 };
 

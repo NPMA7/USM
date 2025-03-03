@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import bcrypt from 'bcryptjs';
 
 const ForgotPasswordPage = () => {
   // State dasar
@@ -175,10 +176,14 @@ const ForgotPasswordPage = () => {
     }
 
     try {
+      // Hash password baru
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(password, salt);
+
       // Update password di database
       const { data, error: updateError } = await supabase
         .from('users')
-        .update({ password: password }) // Dalam implementasi nyata, gunakan hash password
+        .update({ password: hashedPassword }) // Gunakan password yang sudah di-hash
         .eq('email', email);
 
       if (updateError) {

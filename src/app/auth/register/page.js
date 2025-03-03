@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import bcrypt from 'bcryptjs';
 
 const RegisterPage = () => {
   // State dasar
@@ -422,31 +423,40 @@ const RegisterPage = () => {
       formattedWhatsapp = '62' + whatsapp;
     }
 
-    // Buat objek user
-    const newUser = {
-      name,
-      username,
-      email,
-      whatsapp: formattedWhatsapp,
-      password, // Dalam implementasi nyata, gunakan hash password
-      email_verified: true,
-    };
-
-    // Simpan data pengguna ke tabel 'users'
-    const { data, error: insertError } = await supabase
-      .from('users')
-      .insert([newUser])
-      .select();
-
-    if (insertError) {
-      setLoading(false);
-      setError(insertError.message);
-    } else {
-      // Simpan data pengguna ke localStorage
-      localStorage.setItem('user', JSON.stringify(data[0]));
+    try {
+      // Hash password sebelum menyimpan ke database
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(password, salt);
       
-      // Redirect langsung ke halaman profil
-      router.push('/profile');
+      // Buat objek user dengan password yang sudah di-hash
+      const newUser = {
+        name,
+        username,
+        email,
+        whatsapp: formattedWhatsapp,
+        password: hashedPassword, // Gunakan password yang sudah di-hash
+        email_verified: true,
+      };
+
+      // Simpan data pengguna ke tabel 'users'
+      const { data, error: insertError } = await supabase
+        .from('users')
+        .insert([newUser])
+        .select();
+
+      if (insertError) {
+        setLoading(false);
+        setError(insertError.message);
+      } else {
+        // Simpan data pengguna ke localStorage
+        localStorage.setItem('user', JSON.stringify(data[0]));
+        
+        // Redirect langsung ke halaman profil
+        router.push('/profile');
+      }
+    } catch (error) {
+      setLoading(false);
+      setError(error.message);
     }
   };
 
