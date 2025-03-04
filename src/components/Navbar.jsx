@@ -66,7 +66,7 @@ export default function Navbar() {
     localStorage.removeItem('loginTime');
     // Trigger event storage
     window.dispatchEvent(new Event('storage'));
-    router.push('/auth/login');
+    router.push('/');
   };
 
   const smoothScroll = (targetId) => {

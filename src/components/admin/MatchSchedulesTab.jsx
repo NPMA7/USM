@@ -11,7 +11,7 @@ const roundNames = [
   'Playoffs'
 ];
 
-export default function MatchSchedulesTab() {
+export default function MatchSchedulesTab({ tournamentName }) {
   const [tournaments, setTournaments] = useState([]);
   const [registeredTeams, setRegisteredTeams] = useState([]);
   const [tournamentId, setTournamentId] = useState('');
@@ -41,6 +41,8 @@ export default function MatchSchedulesTab() {
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [matchToDelete, setMatchToDelete] = useState(null);
   const [scheduleCount, setScheduleCount] = useState(0);
+  const [teams, setTeams] = useState([]);
+  const [selectedTournament, setSelectedTournament] = useState('');
 
   useEffect(() => {
     fetchTournaments();
@@ -59,6 +61,10 @@ export default function MatchSchedulesTab() {
     }
   }, [tournamentId]);
 
+  useEffect(() => {
+    fetchTeams(tournamentName);
+  }, [tournamentName]);
+
   const fetchTournaments = async () => {
     try {
       const { data, error } = await supabase
@@ -67,9 +73,7 @@ export default function MatchSchedulesTab() {
       if (error) throw error;
       setTournaments(data);
     } catch (error) {
-      console.error('Error mengambil data turnamen:', error);
-    } finally {
-      setLoading(false);
+      console.error('Error fetching tournaments:', error.message);
     }
   };
 
@@ -102,64 +106,32 @@ export default function MatchSchedulesTab() {
     }
   };
 
-  const fetchTeamsForTournament = async (tournamentName) => {
+  const fetchTeams = async (tournamentName) => {
     try {
-        // Ambil semua tim berdasarkan tournament_name yang relevan
-        const { data: teamsData, error: teamsError } = await supabase
-            .from('team_details')
-            .select('*')
-            .eq('tournament_name', tournamentName); // Filter berdasarkan tournament_name
-
-        if (teamsError) throw teamsError;
-
-        return teamsData;
+      const { data, error } = await supabase
+        .from('team_details')
+        .select('*')
+        .eq('tournament_name', tournamentName);
+      if (error) throw error;
+      setTeams(data);
     } catch (error) {
-        console.error('Error mengambil data tim:', error.message);
-        return [];
+      console.error('Error fetching teams:', error.message);
     }
   };
 
   const fetchMatches = async () => {
     try {
-        setLoading(true);
-        
-        // Ambil nama turnamen yang relevan
-        const tournamentName = 'NamaTurnamenYangDipilih'; // Ganti dengan nama turnamen yang relevan
-
-        // Ambil semua jadwal pertandingan
-        const { data: matchesData, error: matchesError } = await supabase
+        const { data, error } = await supabase
             .from('match_schedules')
-            .select(`
-                *,
-                tournaments:tournament_id(name)
-            `)
-            .order('match_date', { ascending: true });
+            .select('*')
+            .order('match_date', { ascending: true }); // Mengurutkan berdasarkan tanggal pertandingan
 
-        if (matchesError) throw matchesError;
+        if (error) throw error;
 
-        // Ambil tim yang sesuai dengan tournament_name
-        const teamsData = await fetchTeamsForTournament(tournamentName);
-
-        // Transformasi data jadwal pertandingan
-        const transformedData = matchesData.map(match => ({
-            ...match,
-            team1: teamsData.find(team => team.id === match.team1_id) || {},
-            team2: teamsData.find(team => team.id === match.team2_id) || {},
-        }));
-
-        // Filter untuk memastikan hanya tim yang sesuai dengan tournament_name yang dimuat
-        const filteredMatches = transformedData.filter(match => 
-            match.team1.tournament_name === tournamentName &&
-            match.team2.tournament_name === tournamentName
-        );
-
-        setMatches(filteredMatches);
+        console.log('Fetched matches:', data);
+        setMatches(data); // Pastikan Anda menyimpan data yang diambil ke dalam state
     } catch (error) {
-        console.error('Error mengambil data jadwal pertandingan:', error.message);
-        setInfoMessage('Gagal mengambil data jadwal pertandingan: ' + error.message);
-        setShowInfoPopup(true);
-    } finally {
-        setLoading(false);
+        console.error('Error fetching matches:', error.message);
     }
   };
 
@@ -187,42 +159,52 @@ export default function MatchSchedulesTab() {
     e.preventDefault();
     
     try {
-      const combinedDateTime = `${matchDate}T${matchTime}:00`;
-      
-      const { data, error } = await supabase
-        .from('match_schedules')
-        .insert([
-          {
+        const combinedDateTime = `${matchDate}T${matchTime}:00`;
+        
+        console.log({
             tournament_id: tournamentId,
             team1_id: team1Id,
             team2_id: team2Id,
             match_date: combinedDateTime,
             match_link: matchLink || "-",
-            status: 'upcoming',
-            round: roundName,
-            team1_score: null,
-            team2_score: null
-          }
-        ]);
+            round: roundName
+        });
+        
+        const { data, error } = await supabase
+            .from('match_schedules')
+            .insert([
+                {
+                    tournament_id: tournamentId,
+                    team1_id: team1Id,
+                    team2_id: team2Id,
+                    match_date: combinedDateTime,
+                    match_link: matchLink || "-",
+                    status: 'upcoming',
+                    round: roundName,
+                    team1_score: null,
+                    team2_score: null
+                }
+            ]);
 
-      if (error) throw error;
+        if (error) throw error;
 
-      setInfoMessage('Jadwal pertandingan berhasil ditambahkan!');
-      setShowInfoPopup(true);
-      fetchMatches();
-      
-      setTeam1Id('');
-      setTeam2Id('');
-      setMatchDate('');
-      setMatchTime('');
-      setMatchLink('');
-      setRoundName(roundNames[0]);
-      setShowAddModal(false);
-      
+        setInfoMessage('Jadwal pertandingan berhasil ditambahkan!');
+        setShowInfoPopup(true);
+        fetchMatches();
+        
+        // Reset form fields
+        setTeam1Id('');
+        setTeam2Id('');
+        setMatchDate('');
+        setMatchTime('');
+        setMatchLink('');
+        setRoundName(roundNames[0]);
+        setShowAddModal(false);
+        
     } catch (error) {
-      console.error('Error menambahkan jadwal:', error.message);
-      setInfoMessage('Gagal menambahkan jadwal pertandingan: ' + error.message);
-      setShowInfoPopup(true);
+        console.error('Error menambahkan jadwal:', error.message);
+        setInfoMessage('Gagal menambahkan jadwal pertandingan: ' + error.message);
+        setShowInfoPopup(true);
     }
   };
 
@@ -433,6 +415,15 @@ export default function MatchSchedulesTab() {
     }
   };
 
+  const handleTournamentChange = (e) => {
+    const tournamentName = e.target.value;
+    setSelectedTournament(tournamentName);
+    fetchTeams(tournamentName);
+  };
+
+  // Filter tim untuk tim 2
+  const availableTeamsForTeam2 = teams.filter(team => team.id !== team1Id);
+
   return (
     <div>
       {showInfoPopup && (
@@ -486,18 +477,14 @@ export default function MatchSchedulesTab() {
                       Turnamen
                     </label>
                     <select
-                      value={tournamentId}
-                      onChange={(e) => {
-                        setTournamentId(e.target.value);
-                        setTeam1Id('');
-                        setTeam2Id('');
-                      }}
+                      value={selectedTournament}
+                      onChange={handleTournamentChange}
                       required
                       className="w-full p-2 border rounded"
                     >
                       <option value="">Pilih Turnamen</option>
                       {tournaments.map((tournament) => (
-                        <option key={tournament.id} value={tournament.id}>
+                        <option key={tournament.id} value={tournament.name}>
                           {tournament.name}
                         </option>
                       ))}
@@ -515,7 +502,7 @@ export default function MatchSchedulesTab() {
                       className="w-full p-2 border rounded"
                     >
                       <option value="">Pilih Tim 1</option>
-                      {registeredTeams.map((team) => (
+                      {teams.map((team) => (
                         <option key={team.id} value={team.id}>
                           {team.team_name}
                         </option>
@@ -534,7 +521,7 @@ export default function MatchSchedulesTab() {
                       className="w-full p-2 border rounded"
                     >
                       <option value="">Pilih Tim 2</option>
-                      {registeredTeams.map((team) => (
+                      {availableTeamsForTeam2.map((team) => (
                         <option key={team.id} value={team.id}>
                           {team.team_name}
                         </option>

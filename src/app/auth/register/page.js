@@ -427,9 +427,9 @@ const RegisterPage = () => {
       // Registrasi berhasil
       setSuccess('Registrasi berhasil! Silakan login.');
       
-      // Redirect ke halaman profil setelah 1 detik
+      // Redirect ke halaman login setelah 1 detik
       setTimeout(() => {
-        router.push('/login'); // Arahkan ke halaman profil
+        router.push('/auth/login'); // Arahkan ke halaman login
       }, 1000);
     } catch (error) {
       setError(error.message);

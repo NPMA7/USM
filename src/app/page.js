@@ -740,36 +740,27 @@ export default function Home() {
       <InfoSection />
 
       {/* Tournament Section */}
-      <div id="tournaments" className="py-16 bg-gray-200">
+      <div id="tournaments" className="py-16 w-screen min-h-screen bg-gray-200">
         <div className="max-w-6xl mx-auto px-4">
           <h2 className="text-3xl font-bold text-center text-blue-900 mb-4">Pilih Turnamen</h2>
-          <p className="text-center text-gray-600 mb-12 max-w-2xl mx-auto">
-            Pilih turnamen yang ingin kamu ikuti dan mulai perjalananmu menuju kemenangan!
-          </p>
-          
-          {isLoading ? (
-            <p>Loading...</p>
-          ) : (
+          <p className="text-center text-gray-600 mb-12 max-w-2xl mx-auto">Pilih turnamen yang ingin kamu ikuti dan mulai perjalananmu menuju kemenangan!</p>
+          {isLoading ? (<div className="flex justify-center"><p>Loading...</p></div>) : (
             <div className="flex justify-center">
-              <div className="flex flex-wrap gap-8 max-md:grid max-md:grid-cols-1 w-96 justify-center">
-                {tournamentData.length > 0 ? (
-                  tournamentData.map((tournament) => (
-                    <TournamentCard 
-                      key={tournament.id}
-                      title={tournament.name}
-                      price={tournament.price}
-                      image={tournament.image_url || "https://via.placeholder.com/400x200?text=Turnamen+Gaming"}
-                      onSelect={handleTournamentSelect}
-                      description={tournament.description}
-                      registeredTeams={registeredTeams[tournament.name] || 0}
-                      maxTeams={tournament.max_teams}
-                      isLoading={isLoading}
-                      tournament={tournament}
-                    />
-                  ))
-                ) : (
-                  <p>Tidak ada turnamen yang tersedia saat ini.</p>
-                )}
+              <div className="flex flex-row gap-8 max-md:grid max-md:grid-cols-1 justify-center">
+                {tournamentData.length > 0 ? (tournamentData.map((tournament) => (
+                  <TournamentCard 
+                    key={tournament.id}
+                    title={tournament.name}
+                    price={tournament.price}
+                    image={tournament.image_url || "https://via.placeholder.com/400x200?text=Turnamen+Gaming"}
+                    onSelect={handleTournamentSelect}
+                    description={tournament.description}
+                    registeredTeams={registeredTeams[tournament.name] || 0}
+                    maxTeams={tournament.max_teams}
+                    isLoading={isLoading}
+                    tournament={tournament}
+                  />
+                ))) : (<p>Tidak ada turnamen yang tersedia saat ini.</p>)}
               </div>
             </div>
           )}

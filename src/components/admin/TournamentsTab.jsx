@@ -37,6 +37,9 @@ export default function TournamentsTab() {
 
   const [tournamentCount, setTournamentCount] = useState(0); // State untuk menyimpan jumlah turnamen
 
+  // Tambahkan state untuk menyimpan error nama turnamen
+  const [tournamentNameError, setTournamentNameError] = useState("");
+
   useEffect(() => {
     fetchTournaments();
     checkTournamentCount(); // Panggil sekali saat komponen dimuat
@@ -269,9 +272,37 @@ export default function TournamentsTab() {
     }
   };
 
+  const checkTournamentNameAvailability = async (tournamentName) => {
+    try {
+      const { data, error } = await supabase
+        .from('tournaments')
+        .select('*')
+        .eq('name', tournamentName);
+
+      if (error) {
+        console.error('Error checking tournament name availability:', error);
+        return false;
+      }
+
+      return data.length === 0; // Jika tidak ada data, nama tersedia
+    } catch (error) {
+      console.error('Error:', error);
+      return false;
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    // Validasi nama turnamen
+    const isNameAvailable = await checkTournamentNameAvailability(name);
+    if (!isNameAvailable) {
+      setTournamentNameError("Nama turnamen sudah terdaftar. Silakan pilih nama lain.");
+      return;
+    } else {
+      setTournamentNameError(""); // Reset error jika nama tersedia
+    }
+
     try {
       setLoading(true);
       let finalImageUrl = imageUrl;
@@ -614,21 +645,31 @@ export default function TournamentsTab() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Nama Turnamen
+                      Nama Turnamen - Jenis Turnamen
                     </label>
+                    <p className="text-xs text-gray-500 mb-1"> Contoh: RAMADHAN ESPORTS - CS ELITE </p>
                     <input
                       type="text"
                       value={name}
-                      onChange={(e) => setName(e.target.value)}
+                      onChange={(e) => {
+                        setName(e.target.value);
+                        setTournamentNameError(""); // Reset error saat pengguna mengetik
+                      }}
                       required
+                      placeholder='RAMADHAN ESPORTS - CS ELITE'
                       className="w-full p-2 border rounded"
                     />
+                    {tournamentNameError && (
+                      <p className="text-red-500 text-xs">{tournamentNameError}</p>
+                    )}
                   </div>
                   
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Game
                     </label>
+                    <p className="text-xs text-gray-500 mb-1"> Contoh: Mobile Legends </p>
+                   
                     <select
                       value={game}
                       onChange={(e) => setGame(e.target.value)}
@@ -636,10 +677,10 @@ export default function TournamentsTab() {
                       className="w-full p-2 border rounded"
                     >
                       <option value="">Pilih Game</option>
-                      <option value="MobileLegend">Mobile Legends</option>
-                      <option value="FreeFire">Free Fire</option>
-                      <option value="PUBG">PUBG Mobile</option>
-                      <option value="Valorant">Valorant</option>
+                      <option value="Mobile Legend">Mobile Legends</option>
+                      <option value="MCGG (MagicChess)">MCGG (MagicChess)</option>
+                      <option value="FreeFire Bermuda">FreeFire Bermuda</option>
+                      <option value="FreeFire CS ELITE">FreeFire CS ELITE</option>
                     </select>
                   </div>
                   
@@ -647,11 +688,13 @@ export default function TournamentsTab() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Harga Pendaftaran (Rp)
                     </label>
+                    <p className="text-xs text-gray-500 mb-1"> *10rb = 10000 </p>
                     <input
                       type="number"
                       value={price}
                       onChange={(e) => setPrice(e.target.value)}
                       required
+                      placeholder='100000'
                       min="0"
                       className="w-full p-2 border rounded"
                     />
@@ -661,6 +704,7 @@ export default function TournamentsTab() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Maksimal Tim
                     </label>
+                    <p className="text-xs text-gray-500 mb-1"> *minimal 1 </p>
                     <input
                       type="number"
                       value={maxTeams}

@@ -1,6 +1,6 @@
 const TabNavigation = ({ activeTab, setActiveTab }) => {
   return (
-    <div className="flex border-b">
+    <div className="flex border-b overflow-x-auto">
       <button
         onClick={() => setActiveTab('profile')}
         className={`flex-1 py-4 px-6 text-center font-medium cursor-pointer ${
