@@ -126,6 +126,7 @@ export default function Home() {
 
     // Kirimkan nama turnamen ke form registrasi
     setTournamentName(selectedTournament.name);
+    console.log("Selected Tournament Name:", selectedTournament.name); // Log nama turnamen yang dipilih
   };
 
   // Fungsi untuk memeriksa ketersediaan nomor WhatsApp
@@ -178,6 +179,9 @@ export default function Home() {
 
   const checkTeamNameAvailability = async (teamName) => {
     try {
+      // Menghapus spasi berlebih dan memastikan hanya satu spasi antar kata
+      const normalizedTeamName = teamName.replace(/\s+/g, ' ').trim();
+
       const { data, error } = await supabase
         .from('team_details')
         .select('team_name')
@@ -189,7 +193,7 @@ export default function Home() {
       }
   
       const existingTeamNames = data.map(team => team.team_name.toLowerCase());
-      return !existingTeamNames.includes(teamName.toLowerCase());
+      return !existingTeamNames.includes(normalizedTeamName.toLowerCase());
     } catch (error) {
       console.error('Error:', error);
       return false;
@@ -323,6 +327,14 @@ export default function Home() {
     const isTeamNameAvailable = await checkTeamNameAvailability(teamName);
     if (!isTeamNameAvailable) {
       alert("Nama tim sudah terdaftar. Silakan pilih nama tim lain.");
+      return;
+    }
+
+    console.log("Tournament Name for Payment:", tournamentName); // Log nama turnamen yang digunakan untuk pembayaran
+
+    const alreadyRegistered = await checkUserRegistration(userData, tournamentName);
+    if (alreadyRegistered) {
+      alert("Anda sudah mendaftarkan tim untuk turnamen ini. Satu pengguna hanya dapat mendaftarkan satu tim per turnamen.");
       return;
     }
 
@@ -617,23 +629,25 @@ export default function Home() {
   }, [updateRegisteredTeams]);
 
   // Fungsi untuk memeriksa apakah pengguna sudah mendaftar untuk turnamen tertentu
-  const checkUserRegistration = async (userData, tournamentType) => {
+  const checkUserRegistration = async (userData, tournamentName) => {
     try {
-      // Gunakan email sebagai pengenal unik untuk pengguna
+      console.log("Checking registration for:", userData.email, "Tournament Name:", tournamentName); // Log email dan nama turnamen
       const { data, error } = await supabase
         .from('transactions')
         .select('*')
         .eq('email', userData.email)
-        .eq('tournament_name', tournamentType)
-        .eq('transaction_status', 'settlement'); // Hanya cek yang sudah settlement
-      
+        .eq('tournament_name', tournamentName)
+        .eq('transaction_status', 'settlement');
+
       if (error) {
+        console.error('Error checking registration:', error);
         return false;
       }
-      
-      // Jika data ditemukan, berarti pengguna sudah mendaftar
-      return data && data.length > 0;
+
+      console.log("Registration data found:", data); // Log data yang ditemukan
+      return data && data.length > 0; // Mengembalikan true jika ada data
     } catch (error) {
+      console.error('Error:', error);
       return false;
     }
   };
@@ -698,6 +712,27 @@ export default function Home() {
     return () => clearInterval(intervalId);
   }, [tournamentCount]);
 
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const userData = localStorage.getItem('user');
+      const loginTime = localStorage.getItem('loginTime');
+
+      if (!userData) {
+        setIsLoggedIn(false);
+        setUserData(null);
+      } else {
+        setIsLoggedIn(true);
+        setUserData(JSON.parse(userData));
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-900 via-blue-700 to-blue-500">
       {/* Hero Section */}
@@ -721,7 +756,13 @@ export default function Home() {
           </p>
           <div className="flex flex-wrap justify-center gap-4">
             <button 
-              onClick={() => document.getElementById('tournaments').scrollIntoView({ behavior: 'smooth' })}
+              onClick={() => {
+                if (!isLoggedIn) {
+                  router.push('/auth/login'); // Arahkan ke halaman login jika belum login
+                } else {
+                  document.getElementById('tournaments').scrollIntoView({ behavior: 'smooth' }); // Arahkan ke turnamen jika sudah login
+                }
+              }}
               className="px-8 py-3 bg-yellow-500 text-blue-900 font-bold rounded-full hover:bg-yellow-400 transition-all duration-300 transform hover:scale-105"
             >
               Daftar Sekarang
@@ -780,8 +821,13 @@ export default function Home() {
             Jangan lewatkan kesempatan untuk menunjukkan skill gaming terbaikmu dan menangkan hadiah menarik!
           </p>
           <button 
-            onClick={() => document.getElementById('tournaments').scrollIntoView({ behavior: 'smooth' })}
-            className="px-8 py-3 bg-yellow-500 text-blue-900 font-bold rounded-full hover:bg-yellow-400 transition-all duration-300 transform hover:scale-105"
+           onClick={() => {
+            if (!isLoggedIn) {
+              router.push('/auth/login'); // Arahkan ke halaman login jika belum login
+            } else {
+              document.getElementById('tournaments').scrollIntoView({ behavior: 'smooth' }); // Arahkan ke turnamen jika sudah login
+            }
+          }}  className="px-8 py-3 bg-yellow-500 text-blue-900 font-bold rounded-full hover:bg-yellow-400 transition-all duration-300 transform hover:scale-105"
           >
             Daftar Sekarang
           </button>
@@ -822,6 +868,7 @@ export default function Home() {
           userData={userData}
           error={error}
           checkTeamNameAvailability={checkTeamNameAvailability}
+          checkUserRegistration={checkUserRegistration}
         />
       )}
 

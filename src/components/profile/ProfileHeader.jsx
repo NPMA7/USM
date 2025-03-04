@@ -244,7 +244,7 @@ const ProfileHeader = ({ user, refreshUserData }) => {
         </div>
       )}
       
-      <div className="flex justify-between">
+      <div className="flex justify-between overflow-hidden">
         <div className="flex items-center space-x-4">
           <div className="relative">
             <img
@@ -283,12 +283,12 @@ const ProfileHeader = ({ user, refreshUserData }) => {
               </div>
             )}
           </div>
-          <div>
+          <div className='flex flex-col flex-wrap w-1/2 overflow-hidden'>
             <h1 className="text-2xl font-bold">{user.name}</h1>
             <p className="text-blue-100">@{user.username}</p>
           </div>
         </div>
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-4 max-md:absolute max-md:right-2 max-md:rotate-90">
           <h1 className="text-2xl font-extrabold">USM</h1>
         </div>
       </div>

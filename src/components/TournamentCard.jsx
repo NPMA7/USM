@@ -173,7 +173,7 @@ export default function TournamentCard({
         )}
 
         <button
-          onClick={() => onSelect(tournament.game, tournament.id)}
+          onClick={() => onSelect(tournament.game, tournament.id, tournament.name)}
           disabled={isLoading || registeredTeams >= currentMaxTeams || isUserRegistered || checkingRegistration || tournamentStatus !== 'open'}
           className={`w-full mt-6 ${
             isLoading || checkingRegistration

@@ -13,7 +13,7 @@ export default function InfoSection() {
           </div>
           <h3 className="text-xl font-semibold text-center mb-2">Jadwal</h3>
           <p className="text-gray-600 text-center">
-            Turnamen akan berlangsung pada bulan Maret. Pendaftaran ditutup 3 hari sebelum turnamen dimulai.
+            Turnamen akan dilaksanakan pada bulan ini. Pendaftaran akan ditutup 3 hari sebelum hari pelaksanaan turnamen.
           </p>
         </div>
         
@@ -25,7 +25,7 @@ export default function InfoSection() {
           </div>
           <h3 className="text-xl font-semibold text-center mb-2">Hadiah</h3>
           <p className="text-gray-600 text-center">
-            Total hadiah mencapai jutaan rupiah dengan trofi dan sertifikat untuk para pemenang di setiap kategori.
+            Total hadiah mencapai ratusan ribu rupiah dengan sertifikat untuk para pemenang di setiap kategori.
           </p>
         </div>
         

@@ -1,7 +1,10 @@
+'use client'
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import InfoPopup from '@/components/InfoPopup';
 import AdminConfirmationModal from '@/components/admin/AdminConfirmationModal';
+import ProgressBar from '@/components/ProgressBar';
+import { useTeams } from '@/context/TeamContext';
 
 export default function TournamentsTab() {
   const [tournaments, setTournaments] = useState([]);
@@ -40,6 +43,10 @@ export default function TournamentsTab() {
   // Tambahkan state untuk menyimpan error nama turnamen
   const [tournamentNameError, setTournamentNameError] = useState("");
 
+  const { updateRegisteredTeams } = useTeams();
+  const [isLoadingTeams, setIsLoadingTeams] = useState(true);
+  const [registeredTeams, setRegisteredTeams] = useState({});
+
   useEffect(() => {
     fetchTournaments();
     checkTournamentCount(); // Panggil sekali saat komponen dimuat
@@ -50,6 +57,53 @@ export default function TournamentsTab() {
     // Cleanup interval saat komponen unmount
     return () => clearInterval(intervalId);
   }, []);
+
+  useEffect(() => {
+    const fetchRegisteredTeams = async () => {
+      setIsLoadingTeams(true);
+      try {
+        // Ambil semua turnamen yang ada
+        const { data: tournaments, error: tournamentError } = await supabase
+          .from('tournaments')
+          .select('name');
+
+        if (tournamentError || !tournaments) {
+          console.error('Error mengambil data turnamen:', tournamentError);
+          return;
+        }
+
+        // Inisialisasi objek untuk menyimpan jumlah tim per turnamen
+        const teamsCount = {};
+
+        // Untuk setiap turnamen, hitung jumlah tim yang sudah terdaftar
+        for (const tournament of tournaments) {
+          const { count, error } = await supabase
+            .from('transactions')
+            .select('*', { count: 'exact' })
+            .eq('tournament_name', tournament.name)
+            .eq('transaction_status', 'settlement');
+
+          if (!error) {
+            teamsCount[tournament.name] = count || 0;
+          }
+        }
+
+        // Update state dengan jumlah tim dari database
+        setRegisteredTeams(teamsCount);
+
+        // Update context dengan jumlah tim terdaftar
+        for (const [name, count] of Object.entries(teamsCount)) {
+          updateRegisteredTeams(name, count);
+        }
+      } catch (error) {
+        console.error('Error:', error);
+      } finally {
+        setIsLoadingTeams(false);
+      }
+    };
+
+    fetchRegisteredTeams();
+  }, [updateRegisteredTeams]);
 
   const fetchTournaments = async () => {
     try {
@@ -168,15 +222,14 @@ export default function TournamentsTab() {
           ctx.drawImage(img, 0, 0, width, height);
           
           // Kompresi dengan kualitas yang disesuaikan
-          // Mulai dengan kualitas tinggi dan turunkan jika masih terlalu besar
           let quality = 0.9;
           let compressedFile;
           
           const tryCompress = (currentQuality) => {
             // Convert canvas ke blob
             canvas.toBlob((blob) => {
-              // Jika ukuran masih > 500KB dan kualitas > 0.1, coba kompresi lagi
-              if (blob.size > 500 * 1024 && currentQuality > 0.1) {
+              // Jika ukuran masih > 300KB dan kualitas > 0.1, coba kompresi lagi
+              if (blob.size > 300 * 1024 && currentQuality > 0.1) {
                 tryCompress(currentQuality - 0.1);
               } else {
                 // Buat file dari blob
@@ -259,7 +312,6 @@ export default function TournamentsTab() {
         .from('turnamen')
         .getPublicUrl(fileName);
       
-      console.log('Uploaded image public URL:', data.publicUrl); // Debugging: URL gambar yang diupload
       return data.publicUrl;
     } catch (error) {
       console.error('Error mengupload gambar:', error); // Debugging: Error saat upload
@@ -274,16 +326,19 @@ export default function TournamentsTab() {
 
   const checkTournamentNameAvailability = async (tournamentName) => {
     try {
+      // Menghapus spasi berlebih dan memastikan hanya satu spasi antar kata
+      const normalizedTournamentName = tournamentName.replace(/\s+/g, ' ').trim();
+  
       const { data, error } = await supabase
-        .from('tournaments')
+        .from('transactions')
         .select('*')
-        .eq('name', tournamentName);
-
+        .eq('tournament_name', normalizedTournamentName); // Pastikan memeriksa nama yang dinormalisasi
+  
       if (error) {
         console.error('Error checking tournament name availability:', error);
         return false;
       }
-
+  
       return data.length === 0; // Jika tidak ada data, nama tersedia
     } catch (error) {
       console.error('Error:', error);
@@ -296,7 +351,7 @@ export default function TournamentsTab() {
     
     // Validasi nama turnamen
     const isNameAvailable = await checkTournamentNameAvailability(name);
-    if (!isNameAvailable) {
+    if (!isNameAvailable && (!editMode || (editMode && currentTournament.name !== name))) {
       setTournamentNameError("Nama turnamen sudah terdaftar. Silakan pilih nama lain.");
       return;
     } else {
@@ -548,11 +603,11 @@ export default function TournamentsTab() {
       </div>
 
       {loading ? (
-        <div className="flex justify-center my-8">
+        <div className="flex justify-center my-8 overflow-auto">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 overflow-auto">
           {tournaments.map((tournament) => (
             <div key={tournament.id} className="bg-white rounded-lg shadow-md overflow-hidden">
               <div className="h-48 bg-gray-200 relative">
@@ -587,14 +642,18 @@ export default function TournamentsTab() {
                 <h3 className="text-lg font-semibold mb-1">{tournament.name}</h3>
                 <p className="text-sm text-gray-600 mb-2">{tournament.game}</p>
                 
-                <div className="flex justify-between items-center text-sm text-gray-500 mb-3">
+                <div className="flex justify-between items-center text-sm text-gray-500 mb-2">
                   <span>Rp {tournament.price?.toLocaleString('id-ID')}</span>
                   <span>Max {tournament.max_teams} tim</span>
                 </div>
                 
-                <p className="text-sm text-gray-700 mb-4 line-clamp-2">{tournament.description}</p>
-                
-                <div className="flex justify-between">
+                <p className="text-sm text-gray-700 mb-2 line-clamp-2">{tournament.description}</p>
+                <ProgressBar 
+                  current={registeredTeams[tournament.name] || 0}
+                  total={tournament.max_teams}
+                  tournament_name={tournament.name} 
+                />
+                <div className="flex justify-between mt-2">
                   <button
                     onClick={() => openEditModal(tournament)}
                     className="px-3 py-1 bg-blue-100 text-blue-600 rounded hover:bg-blue-200"
@@ -614,8 +673,10 @@ export default function TournamentsTab() {
                   >
                     Hapus
                   </button>
-                 
                 </div>
+
+           
+                
               </div>
             </div>
           ))}
@@ -651,9 +712,18 @@ export default function TournamentsTab() {
                     <input
                       type="text"
                       value={name}
-                      onChange={(e) => {
-                        setName(e.target.value);
+                      onChange={async (e) => {
+                        const value = e.target.value;
+                        setName(value);
                         setTournamentNameError(""); // Reset error saat pengguna mengetik
+
+                        // Validasi nama turnamen secara langsung
+                        const isNameAvailable = await checkTournamentNameAvailability(value);
+                        if (!isNameAvailable && (!editMode || (editMode && currentTournament.name !== value))) {
+                          setTournamentNameError("Nama turnamen sudah terdaftar. Silakan pilih nama lain.");
+                        } else {
+                          setTournamentNameError(""); // Reset error jika nama tersedia
+                        }
                       }}
                       required
                       placeholder='RAMADHAN ESPORTS - CS ELITE'
@@ -769,7 +839,7 @@ export default function TournamentsTab() {
                       disabled={compressing}
                     />
                     <p className="text-xs text-gray-500 mt-1">
-                      Format: JPG, PNG, WebP. Ukuran maks: 500KB (gambar akan dikompresi otomatis)
+                      Format: JPG, PNG, WebP. Ukuran maks: 300KB (gambar akan dikompresi otomatis)
                     </p>
                     {compressing && (
                       <p className="text-xs text-blue-500 mt-1 flex items-center">

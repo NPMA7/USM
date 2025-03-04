@@ -3,8 +3,9 @@ import { useRouter } from "next/navigation";
 export default function ErrorDisplay({ error }) {
   const router = useRouter();
   
-  const handleChatCS = () => {
-    window.open(`https://wa.me/6288222810681`, '_blank');
+const handleChatCS = () => {
+    const csNumber = process.env.NEXT_PUBLIC_CS_NUMBER;
+    window.open(`https://wa.me/${csNumber}`, '_blank');
   };
   
   return (

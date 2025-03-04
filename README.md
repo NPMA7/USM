@@ -1,36 +1,71 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# To-Do List untuk Testing
 
-## Getting Started
+## 1. Pengujian Fungsionalitas Registrasi
+- Uji pendaftaran pengguna dengan semua field yang valid. ✅
+- Uji pendaftaran dengan email yang sudah terdaftar. ✅
+- Uji pendaftaran dengan username yang sudah digunakan. ✅
+- Uji pendaftaran dengan format email yang tidak valid. ✅
+- Uji pendaftaran dengan password yang kurang dari 6 karakter. ✅
 
-First, run the development server:
+## 2. Pengujian Fungsionalitas Login
+- Uji login dengan email/username dan password yang benar. ✅
+- Uji login dengan email/username yang tidak terdaftar. ✅
+- Uji login dengan password yang salah. ✅
+- Uji login dengan format email yang tidak valid. ✅
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## 3. Pengujian Fungsionalitas Lupa Password
+- Uji pengiriman OTP untuk email yang terdaftar. ✅
+- Uji pengiriman OTP untuk email yang tidak terdaftar. ✅
+- Uji verifikasi OTP yang benar. ✅
+- Uji verifikasi OTP yang salah. ✅
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 4. Pengujian Fungsionalitas Pembayaran
+- Uji proses pembayaran dengan data yang valid. ✅
+- Uji proses pembayaran dengan nomor WhatsApp yang sudah terdaftar. ✅
+- Uji proses pembayaran dengan email yang sudah terdaftar. ✅
+- Uji penanganan kesalahan saat pembayaran gagal. ✅
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+## 5. Pengujian Fungsionalitas Pendaftaran Tim
+- Uji pendaftaran tim dengan semua field yang valid. ✅
+- Uji pendaftaran tim dengan nama tim yang sudah terdaftar. ✅
+- Uji pendaftaran tim dengan nomor WhatsApp yang tidak valid. ✅
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 6. Pengujian Fungsionalitas Halaman Utama
+- Uji tampilan dan fungsionalitas semua komponen di halaman utama. ✅
+- Uji navigasi ke halaman lain dari halaman utama. ✅
 
-## Learn More
+## 7. Pengujian Fungsionalitas Modal
+- Uji tampilan dan fungsionalitas modal konfirmasi. ✅
+- Uji tampilan dan fungsionalitas modal sukses. ✅
+- Uji tampilan dan fungsionalitas modal pembatalan. ✅
 
-To learn more about Next.js, take a look at the following resources:
+## 8. Pengujian Ketersediaan Data
+- Uji pengambilan data turnamen dari Supabase. ✅
+- Uji pengambilan data transaksi pengguna. ✅
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 9. Pengujian Responsivitas
+- Uji tampilan aplikasi di berbagai ukuran layar (desktop, tablet, mobile).
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 10. Pengujian Keamanan
+- Uji penanganan kesalahan untuk input yang tidak valid. 
+- Uji perlindungan terhadap serangan XSS dan CSRF.
 
-## Deploy on Vercel
+## 11. Pengujian Kinerja
+- Uji waktu respons untuk pengambilan data dari API. ✅
+- Uji beban saat banyak pengguna mengakses aplikasi secara bersamaan. ✅
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 12. Pengujian Integrasi
+- Uji integrasi antara frontend dan backend. ✅
+- Uji integrasi dengan layanan pihak ketiga (seperti Midtrans). ✅
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 13. Pengujian Fungsionalitas Admin
+- Uji akses halaman admin untuk pengguna dengan role admin dan owner. ✅
+- Uji navigasi antar tab (Users, Tournaments, Transactions, Match Schedules, Teams) di halaman admin. ✅
+- Uji penghapusan pengguna oleh admin. ✅
+- Uji penambahan turnamen baru oleh admin. ✅
+- Uji penghapusan turnamen oleh admin. ✅
+- Uji pengelolaan jadwal pertandingan oleh admin.
+- Uji tampilan dan fungsionalitas modal konfirmasi penghapusan di halaman admin. ✅
+- Uji pengambilan data pengguna dan turnamen dari Supabase di halaman admin. ✅
+- Uji penanganan kesalahan saat admin mencoba menghapus pengguna yang tidak ada. ✅
+- Uji penanganan kesalahan saat admin mencoba menambahkan turnamen dengan data yang tidak valid. ✅

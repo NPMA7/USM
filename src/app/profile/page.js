@@ -229,6 +229,71 @@ const ProfilePage = () => {
     router.push('/auth/login');
   };
 
+  const refreshSchedules = async () => {
+    if (!user) return;
+
+    try {
+      const { data: userTransactions, error: transactionError } = await supabase
+        .from('transactions')
+        .select('*')
+        .eq('email', user.email)
+        .eq('transaction_status', 'settlement');
+
+      if (transactionError) throw transactionError;
+
+      if (!userTransactions || userTransactions.length === 0) {
+        setMatchSchedules([]);
+        return;
+      }
+
+      const teamOrderIds = userTransactions.map(t => t.order_id);
+      const { data: teamDetails, error: teamError } = await supabase
+        .from('team_details')
+        .select('*')
+        .in('order_id', teamOrderIds);
+
+      if (teamError) throw teamError;
+
+      if (!teamDetails || teamDetails.length === 0) {
+        setMatchSchedules([]);
+        return;
+      }
+
+      const teamIds = teamDetails.map(team => team.id);
+      const { data: matches, error: matchError } = await supabase
+        .from('match_schedules')
+        .select(`
+          *,
+          tournaments:tournament_id(name, game),
+          team1:team_details!team1_id(team_name),
+          team2:team_details!team2_id(team_name)
+        `)
+        .or(`team1_id.in.(${teamIds}),team2_id.in.(${teamIds})`);
+
+      if (matchError) throw matchError;
+
+      const transformedMatches = matches.map(match => ({
+        id: match.id,
+        tournament_name: match.tournaments?.name || 'Unknown Tournament',
+        game_type: match.tournaments?.game || 'Unknown Game',
+        match_date: match.match_date,
+        match_link: match.match_link,
+        status: match.status || 'upcoming',
+        round_name: match.round,
+        team1_name: match.team1?.team_name,
+        team2_name: match.team2?.team_name,
+        team1_score: match.team1_score,
+        team2_score: match.team2_score,
+        winning_team_name: match.winning_team_name || 'Belum ada hasil',
+        losing_team_name: match.losing_team_name || 'Belum ada hasil',
+      }));
+
+      setMatchSchedules(transformedMatches);
+    } catch (error) {
+      console.error('Error fetching match schedules:', error);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center">
@@ -244,33 +309,8 @@ const ProfilePage = () => {
 
   return (
     <div id="profile-container" className="max-w-4xl h-full mx-auto p-4 mt-16 flex flex-col" ref={invoiceRef} style={{ width: '100%', overflow: 'visible' }}>
-      <div className="bg-white flex-1 rounded-xl shadow-lg overflow-visible" style={{ width: '100%' }}>
-        {/* Header Profil */}
-        <ProfileHeader user={user} />
-
-        {/* Tab Navigation */}
-        <TabNavigation activeTab={activeTab} setActiveTab={setActiveTab} />
-
-        {/* Tab Content */}
-        <div id="profile-tab" className={`p-6 flex-1 ${tabHeightClass}`} style={{ width: '100%' }}>
-          {activeTab === 'profile' ? (
-            <ProfileTab user={user} refreshUserData={refreshUserData} />
-          ) : activeTab === 'tournaments' ? (
-            <TournamentsTab 
-              tournaments={tournaments} 
-              transactions={transactions} 
-              fetchTeamDetails={fetchTeamDetails} 
-            />
-          ) : activeTab === 'schedules' ? (
-            <SchedulesTab matchSchedules={matchSchedules} userTeamId={userTeamId} userTeamName={userTeamName} />
-          ) : (
-            <TransactionsTab transactions={transactions} />
-          )}
-        </div>
-      </div>
-
       {/* Aksi */}
-      <div className="mt-4 border-t pt-4">
+      <div className="mb-4 border-b pb-4">
         <div className="flex justify-between flex-wrap gap-4">
           <button
             onClick={handleLogout}
@@ -286,6 +326,37 @@ const ProfilePage = () => {
           </Link>
         </div>
       </div>
+      <div className="bg-white flex-1 rounded-xl shadow-lg overflow-visible" style={{ width: '100%' }}>
+        {/* Header Profil */}
+        <ProfileHeader user={user} />
+
+        {/* Tab Navigation */}
+        <TabNavigation activeTab={activeTab} setActiveTab={setActiveTab} />
+
+        {/* Tab Content */}
+        <div id="profile-tab" className={`p-6 flex-1 ${tabHeightClass} overflow-y-auto`} style={{ width: '100%' }}>
+          {activeTab === 'profile' ? (
+            <ProfileTab user={user} refreshUserData={refreshUserData} />
+          ) : activeTab === 'tournaments' ? (
+            <TournamentsTab 
+              tournaments={tournaments} 
+              transactions={transactions} 
+              fetchTeamDetails={fetchTeamDetails} 
+            />
+          ) : activeTab === 'schedules' ? (
+            <SchedulesTab 
+              matchSchedules={matchSchedules} 
+              userTeamId={userTeamId} 
+              userTeamName={userTeamName} 
+              refreshSchedules={refreshSchedules} 
+            />
+          ) : (
+            <TransactionsTab transactions={transactions} />
+          )}
+        </div>
+      </div>
+
+      
 
       {/* Modal untuk Detail Tim */}
       {showTeamDetailsModal && teamDetails && (

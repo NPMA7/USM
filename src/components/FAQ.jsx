@@ -18,7 +18,7 @@ export default function FAQ() {
     },
     {
       question: "Bagaimana jika saya mengalami masalah saat mendaftar?",
-      answer: "Anda dapat menghubungi customer service kami melalui tombol 'Hubungi Kami' di navbar."
+      answer: "Anda dapat menghubungi customer service kami melalui tombol 'Hubungi Kami'."
     },
   ];
 

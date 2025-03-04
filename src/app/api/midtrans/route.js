@@ -19,7 +19,7 @@ export async function POST(req) {
         .from('transactions')
         .select('*')
         .eq('email', userEmail)
-        .eq('tournament', tournament);
+        .eq('tournament_name', tournament);
       
       if (error) {
         throw new Error(`Error checking registration: ${error.message}`);

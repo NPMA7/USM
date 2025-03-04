@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 
 export default function TransactionsTab() {
+  const [tournaments, setTournaments] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -9,12 +10,14 @@ export default function TransactionsTab() {
   const [tournamentFilter, setTournamentFilter] = useState('all');
   const [showModal, setShowModal] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState(null);
-  const [tournaments, setTournaments] = useState([]);
+  const [teams, setTeams] = useState([]);
   const [transactionCount, setTransactionCount] = useState(0);
+  const [error, setError] = useState(null);
+  const [filteredTeams, setFilteredTeams] = useState([]);
 
   useEffect(() => {
     fetchTransactions();
-    fetchTournaments();
+    fetchTeams();
     checkTransactionCount();
     const intervalId = setInterval(() => {
       checkTransactionCount();
@@ -23,33 +26,66 @@ export default function TransactionsTab() {
     return () => clearInterval(intervalId);
   }, []);
 
+  useEffect(() => {
+    // Logika untuk memfilter tim berdasarkan turnamen
+    if (tournamentFilter === 'all') {
+      setFilteredTeams(teams);
+    } else {
+      const filtered = teams.filter(team => {
+        // Pastikan team.transactions ada dan tournament_name sesuai
+        return team.transactions?.tournament_name === tournamentFilter;
+      });
+      setFilteredTeams(filtered);
+    }
+  }, [tournamentFilter, teams]);
+
   const fetchTransactions = async () => {
     try {
       setLoading(true);
       const { data, error } = await supabase
         .from('transactions')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .select('*');
 
-      if (error) throw error;
+      if (error) {
+        throw new Error('Gagal mengambil data transaksi: ' + error.message);
+      }
+
       setTransactions(data || []);
+
+      const uniqueTournaments = Array.from(new Set(data.map(transaction => transaction.tournament_name)));
+      setTournaments(uniqueTournaments);
     } catch (error) {
-      console.error('Error fetching transactions:', error);
+      setError(error.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchTournaments = async () => {
+  const fetchTeams = async () => {
     try {
+      setLoading(true);
       const { data, error } = await supabase
-        .from('tournaments')
-        .select('name, game');
+        .from('team_details')
+        .select(`
+          *,
+          transactions (
+            tournament,
+            team_name,
+            transaction_status,
+            created_at,
+            tournament_name
+          )
+        `)
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setTournaments(data || []);
+
+      setTeams(data);
     } catch (error) {
-      console.error('Error fetching tournaments:', error);
+      console.error('Error fetching teams:', error);
+      alert('Gagal mengambil data tim');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -87,14 +123,14 @@ export default function TransactionsTab() {
       transaction.order_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       transaction.tournament_name?.toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchesStatus = statusFilter === 'all' || transaction.transaction_status === statusFilter;
-    const matchesTournament = tournamentFilter === 'all' || transaction.tournament === tournamentFilter;
+    const matchesTournament = tournamentFilter === 'all' || transaction.tournament_name === tournamentFilter;
     
-    return matchesSearch && matchesStatus && matchesTournament;
+    return matchesSearch && matchesTournament;
   });
 
   return (
     <div>
+      {error && <div className="text-red-500">{error}</div>}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <h2 className="text-xl font-semibold">Manajemen Transaksi</h2>
         <div className="flex flex-col md:flex-row gap-2">
@@ -104,9 +140,9 @@ export default function TransactionsTab() {
             className="p-2 border rounded"
           >
             <option value="all">Semua Turnamen</option>
-            {tournaments.map((tournament, index) => (
-              <option key={index} value={tournament.name}>
-                {tournament.name}
+            {[...new Set(teams.map(team => team.transactions?.tournament_name))].map((tournamentName) => (
+              <option key={tournamentName} value={tournamentName}>
+                {tournamentName}
               </option>
             ))}
           </select>

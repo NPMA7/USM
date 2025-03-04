@@ -3,9 +3,8 @@ import { useState } from 'react';
 
 export default function CustomerServiceButton() {
   const [isHovered, setIsHovered] = useState(false);
-  const csNumber = "6288222810681";
-  
-  const handleChatCS = () => {
+const handleChatCS = () => {
+    const csNumber = process.env.NEXT_PUBLIC_CS_NUMBER;
     window.open(`https://wa.me/${csNumber}`, '_blank');
   };
 

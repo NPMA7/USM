@@ -10,6 +10,7 @@ export default function TeamsTab() {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedTeam, setSelectedTeam] = useState(null);
   const [teamCount, setTeamCount] = useState(0);
+  const [filteredTeams, setFilteredTeams] = useState([]);
 
   useEffect(() => {
     fetchTeams();
@@ -22,6 +23,17 @@ export default function TeamsTab() {
     return () => clearInterval(intervalId);
   }, []);
 
+  useEffect(() => {
+    if (tournamentFilter === 'all') {
+      setFilteredTeams(teams);
+    } else {
+      const filtered = teams.filter(team => {
+        return team.transactions?.tournament_name === tournamentFilter;
+      });
+      setFilteredTeams(filtered);
+    }
+  }, [tournamentFilter, teams]);
+
   const fetchTournaments = async () => {
     try {
       const { data, error } = await supabase
@@ -30,7 +42,7 @@ export default function TeamsTab() {
       if (error) throw error;
       setTournaments(data);
     } catch (error) {
-      console.error('Error mengambil data turnamen:', error);
+      console.error('Error fetching tournaments:', error);
     }
   };
 
@@ -45,7 +57,8 @@ export default function TeamsTab() {
             tournament,
             team_name,
             transaction_status,
-            created_at
+            created_at,
+            tournament_name
           )
         `)
         .order('created_at', { ascending: false });
@@ -66,7 +79,7 @@ export default function TeamsTab() {
 
       setTeams(Object.values(groupedTeams));
     } catch (error) {
-      console.error('Error mengambil data tim:', error);
+      console.error('Error fetching teams:', error);
       alert('Gagal mengambil data tim');
     } finally {
       setLoading(false);
@@ -93,20 +106,34 @@ export default function TeamsTab() {
     }
   };
 
-  const filteredTeams = teams.filter(team => {
-    const matchesTournament = tournamentFilter === 'all' || 
-      team.transactions?.tournament === tournamentFilter;
-    
-    const matchesSearch = searchTerm === '' || 
-      team.team_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      team.captain_nickname?.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    return matchesTournament && matchesSearch;
-  });
-
   const viewTeamDetails = (team) => {
     setSelectedTeam(team);
     setShowDetailsModal(true);
+  };
+
+  const closeModal = () => {
+    setShowDetailsModal(false);
+    setSelectedTeam(null);
+  };
+
+  const toggleWhatsAppGroupStatus = async (team) => {
+    try {
+      const newStatus = !team.is_in_whatsapp_group; // Toggle status
+      const { error } = await supabase
+        .from('team_details')
+        .update({ is_in_whatsapp_group: newStatus })
+        .eq('id', team.id); // Pastikan untuk menggunakan ID yang benar
+
+      if (error) throw error;
+
+      // Update local state if necessary
+      setTeams(prevTeams => 
+        prevTeams.map(t => t.id === team.id ? { ...t, is_in_whatsapp_group: newStatus } : t)
+      );
+    } catch (error) {
+      console.error('Error updating WhatsApp group status:', error);
+      alert('Gagal memperbarui status grup WhatsApp');
+    }
   };
 
   return (
@@ -120,9 +147,9 @@ export default function TeamsTab() {
             className="p-2 border rounded"
           >
             <option value="all">Semua Turnamen</option>
-            {tournaments.map((tournament) => (
-              <option key={tournament.id} value={tournament.game}>
-                {tournament.name}
+            {[...new Set(teams.map(team => team.transactions?.tournament_name))].map((tournamentName) => (
+              <option key={tournamentName} value={tournamentName}>
+                {tournamentName}
               </option>
             ))}
           </select>
@@ -177,12 +204,17 @@ export default function TeamsTab() {
                   Tanggal Daftar
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Status Grup WhatsApp
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Aksi
                 </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredTeams.map((team) => (
+              {filteredTeams.filter(team => 
+                team.team_name.toLowerCase().includes(searchTerm.toLowerCase())
+              ).map((team) => (
                 <tr key={team.order_id}>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-gray-900">
@@ -190,8 +222,8 @@ export default function TeamsTab() {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{team.captain_nickname}</div>
-                    <div className="text-sm text-gray-500">{team.captain_game_id}</div>
+                    <div className="text-sm text-gray-900">Nickname: {team.captain_nickname}</div>
+                    <div className="text-sm text-gray-500">ID Game: {team.captain_game_id}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-gray-900">{team.transactions?.tournament}</div>
@@ -203,15 +235,30 @@ export default function TeamsTab() {
                         ? 'bg-green-100 text-green-800' 
                         : 'bg-yellow-100 text-yellow-800'
                     }`}>
-                      {team.transactions?.transaction_status === 'settlement' ? 'Terdaftar' : 'Pending'}
+                      {team.transactions?.transaction_status}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">
-                      {new Date(team.created_at).toLocaleDateString('id-ID')}
-                    </div>
+                    <div className="text-sm text-gray-500">{new Date(team.created_at).toLocaleDateString('id-ID')}</div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                  <td className="px-6 py-4 whitespace-nowrap flex items-center">
+                    
+                    <label className="inline-flex items-center mr-4">
+                      <input
+                        type="checkbox"
+                        checked={team.is_in_whatsapp_group}
+                        onChange={() => toggleWhatsAppGroupStatus(team)}
+                        className="form-checkbox h-5 w-5 text-blue-600"
+                      />
+                     
+                    </label>
+                    <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                      team.is_in_whatsapp_group ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                    }`}>
+                      {team.is_in_whatsapp_group ? 'Sudah Bergabung' : 'Belum Bergabung'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
                     <button
                       onClick={() => viewTeamDetails(team)}
                       className="text-blue-600 hover:text-blue-900"
@@ -226,67 +273,24 @@ export default function TeamsTab() {
         </div>
       )}
 
-      {/* Modal Detail Tim */}
-      {showDetailsModal && selectedTeam && (
-        <div className="fixed inset-0 bg-transparent backdrop-blur-xl flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold">Detail Tim</h3>
-                <button
-                  onClick={() => setShowDetailsModal(false)}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-
-              <div className="space-y-6">
-                <div>
-                  <h4 className="text-sm font-medium text-gray-500">Informasi Tim</h4>
-                  <div className="mt-2 bg-gray-50 p-4 rounded-lg">
-                    <p><span className="font-medium">Nama Tim:</span> {selectedTeam.team_name}</p>
-                    <p><span className="font-medium">Turnamen:</span> {selectedTeam.transactions?.tournament}</p>
-                    <p><span className="font-medium">Status:</span> {selectedTeam.transactions?.transaction_status}</p>
-                  </div>
-                </div>
-
-                <div>
-                  <h4 className="text-sm font-medium text-gray-500">Kapten Tim</h4>
-                  <div className="mt-2 bg-gray-50 p-4 rounded-lg">
-                    <p><span className="font-medium">Nickname:</span> {selectedTeam.captain_nickname}</p>
-                    <p><span className="font-medium">ID Game:</span> {selectedTeam.captain_game_id}</p>
-                  </div>
-                </div>
-
-                <div>
-                  <h4 className="text-sm font-medium text-gray-500">Anggota Tim</h4>
-                  <div className="mt-2 space-y-2">
-                    {selectedTeam.members.map((member, index) => (
-                      <div key={index} className="bg-gray-50 p-4 rounded-lg">
-                        <p><span className="font-medium">Nama:</span> {member.player_name}</p>
-                        <p><span className="font-medium">ID Game:</span> {member.player_id}</p>
-                        <p><span className="font-medium">Role:</span> {member.player_role}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-6 flex justify-end">
-                <button
-                  onClick={() => setShowDetailsModal(false)}
-                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
-                >
-                  Tutup
-                </button>
-              </div>
+      {showDetailsModal && (
+        <div className="fixed inset-0 bg-transparent backdrop-blur-xl flex items-center justify-center">
+          <div className="bg-gray-200 rounded-lg p-6 max-w-md w-full">
+            <h3 className="text-lg font-semibold mb-4">Informasi Tim</h3>
+            <div className="mb-4">
+              <p className="font-medium">Nama Tim: {selectedTeam?.team_name}</p>
+              <p className="font-medium">Turnamen: {selectedTeam?.transactions?.tournament_name}</p>
+              <p className="font-medium">Status: {selectedTeam?.transactions?.transaction_status}</p>
             </div>
+            <h4 className="text-md font-semibold mb-2">Kapten Tim</h4>
+            <p>Nickname: {selectedTeam?.captain_nickname}</p>
+            <p>ID Game: {selectedTeam?.captain_game_id}</p>
+            <button onClick={closeModal} className="mt-4 bg-blue-500 text-white rounded px-4 py-2">
+              Tutup
+            </button>
           </div>
         </div>
       )}
     </div>
   );
-} 
+}

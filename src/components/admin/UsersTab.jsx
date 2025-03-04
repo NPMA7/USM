@@ -217,7 +217,7 @@ export default function UsersTab() {
         />
       )}
 
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex justify-between items-center mb-6 max-md:flex-col max-md:items-start">
         <h2 className="text-xl font-semibold">Manajemen Pengguna</h2>
         <div className="flex space-x-2">
           <select
@@ -235,7 +235,7 @@ export default function UsersTab() {
             placeholder="Cari pengguna..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="border rounded p-2 w-64"
+            className="border rounded p-2 w-64 max-md:w-full"
           />
         </div>
       </div>

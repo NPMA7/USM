@@ -22,6 +22,7 @@ export default function MatchSchedulesTab({ tournamentName }) {
   const [matchLink, setMatchLink] = useState('');
   const [loading, setLoading] = useState(true);
   const [matches, setMatches] = useState([]);
+  
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditScheduleModal, setShowEditScheduleModal] = useState(false);
   const [showEditScoreModal, setShowEditScoreModal] = useState(false);
@@ -71,7 +72,12 @@ export default function MatchSchedulesTab({ tournamentName }) {
         .from('tournaments')
         .select('*');
       if (error) throw error;
+      
       setTournaments(data);
+      
+      if (data.length > 0) {
+        setTournamentId(data[0].id);
+      }
     } catch (error) {
       console.error('Error fetching tournaments:', error.message);
     }
@@ -123,13 +129,26 @@ export default function MatchSchedulesTab({ tournamentName }) {
     try {
         const { data, error } = await supabase
             .from('match_schedules')
-            .select('*')
-            .order('match_date', { ascending: true }); // Mengurutkan berdasarkan tanggal pertandingan
+            .select(`
+                *,
+                tournaments (name, game), 
+                team1:team1_id (team_name),
+                team2:team2_id (team_name) 
+            `)
+            .order('match_date', { ascending: true });
 
         if (error) throw error;
 
-        console.log('Fetched matches:', data);
-        setMatches(data); // Pastikan Anda menyimpan data yang diambil ke dalam state
+        // Mengupdate matches dengan nama turnamen, jenis game, dan nama tim
+        const updatedMatches = data.map(match => ({
+            ...match,
+            tournament_name: match.tournaments?.name || 'Turnamen tidak tersedia',
+            game_type: match.tournaments?.game || 'Jenis game tidak tersedia',
+            team1_name: match.team1?.team_name || 'Tim 1 tidak tersedia', // Mengambil nama tim 1
+            team2_name: match.team2?.team_name || 'Tim 2 tidak tersedia'  // Mengambil nama tim 2
+        }));
+
+        setMatches(updatedMatches);
     } catch (error) {
         console.error('Error fetching matches:', error.message);
     }
@@ -160,15 +179,7 @@ export default function MatchSchedulesTab({ tournamentName }) {
     
     try {
         const combinedDateTime = `${matchDate}T${matchTime}:00`;
-        
-        console.log({
-            tournament_id: tournamentId,
-            team1_id: team1Id,
-            team2_id: team2Id,
-            match_date: combinedDateTime,
-            match_link: matchLink || "-",
-            round: roundName
-        });
+  
         
         const { data, error } = await supabase
             .from('match_schedules')
@@ -437,7 +448,11 @@ export default function MatchSchedulesTab({ tournamentName }) {
       {showConfirmationModal && (
         <AdminConfirmationModal 
           message="Apakah Anda yakin ingin menghapus jadwal ini?"
-          onConfirm={confirmDeleteMatch}
+          onConfirm={async () => {
+            setLoading(true);
+            await confirmDeleteMatch();
+            setLoading(false);
+          }}
           onCancel={() => setShowConfirmationModal(false)}
           isLoading={loading}
         />
@@ -825,7 +840,8 @@ export default function MatchSchedulesTab({ tournamentName }) {
               {matches.map((match) => (
                 <tr key={match.id}>
                   <td className="px-6 py-4 whitespace-nowrap border border-gray-200 text-center">
-                    {match.tournaments?.name || 'Unknown'}
+                    <div className="text-sm font-medium text-gray-900">{match.tournament_name ? match.tournament_name : 'Turnamen tidak tersedia'}</div>
+                    <div className="text-sm text-gray-500">{match.game_type ? match.game_type : 'Jenis game tidak tersedia'}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap border border-gray-200 text-center">
                     {match.round || 'Grup Stage'}
@@ -857,7 +873,7 @@ export default function MatchSchedulesTab({ tournamentName }) {
                         `${match.winning_team_name}` : 
                         'Belum ada hasil'}
                   </td>
-                    <td className="px-6 py-4 whitespace-nowrap border border-gray-200 flex justify-center gap-x-4">
+                    <td className="px-6 py-8 whitespace-nowrap border border-gray-200 flex justify-center items-center gap-x-4">
                     {match.status === 'upcoming' && (
                       <button
                         onClick={() => openEditScheduleModal(match)}

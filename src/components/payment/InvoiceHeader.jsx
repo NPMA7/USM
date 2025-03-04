@@ -1,6 +1,7 @@
 export default function InvoiceHeader({ tournament, tournament_name }) {
-  const handleChatCS = () => {
-    window.open(`https://wa.me/6288222810681`, '_blank');
+const handleChatCS = () => {
+    const csNumber = process.env.NEXT_PUBLIC_CS_NUMBER;
+    window.open(`https://wa.me/${csNumber}`, '_blank');
   };
 
   return (

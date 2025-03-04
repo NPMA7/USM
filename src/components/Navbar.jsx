@@ -17,6 +17,17 @@ export default function Navbar() {
   const [showSessionExpiredModal, setShowSessionExpiredModal] = useState(false);
   
   useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 30); // Ubah 30 sesuai kebutuhan
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+    };
+  }, []);
+
+  useEffect(() => {
     const checkLoginStatus = () => {
       const userData = localStorage.getItem('user');
       const loginTime = localStorage.getItem('loginTime');
@@ -57,8 +68,9 @@ export default function Navbar() {
     };
   }, [router]);
   
-  const handleChatCS = () => {
-    window.open(`https://wa.me/6288222810681`, '_blank');
+const handleChatCS = () => {
+    const csNumber = process.env.NEXT_PUBLIC_CS_NUMBER;
+    window.open(`https://wa.me/${csNumber}`, '_blank');
   };
 
   const handleLogout = () => {
@@ -93,19 +105,22 @@ export default function Navbar() {
     setIsDropdownOpen(false);
   };
 
-  // Event listener untuk klik di luar dropdown
+  // Event listener untuk klik di luar dropdown dan hamburger
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        closeDropdown();
-      }
+        if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+            closeDropdown();
+        }
+        if (hamburgerRef.current && !hamburgerRef.current.contains(event.target)) {
+            setIsHamburgerOpen(false); // Tutup hamburger jika klik di luar
+        }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+        document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, []);
+}, []);
 
   const toggleHamburger = () => {
     setIsHamburgerOpen(!isHamburgerOpen);
@@ -180,17 +195,16 @@ export default function Navbar() {
           </div>
 
           {isHamburgerOpen && (
-            <div className={`absolute border-t-2 border-double left-0 text-center right-0 bg-blue-900 text-white ${
+            <div ref={hamburgerRef} className={`absolute border-t-2 border-double left-0 text-center right-0 bg-blue-900 text-white ${
               scrolled 
                 ? 'top-11' 
                 : 'top-16'
             }`}> 
               <Link
                 href="/"
-                onClick={(e) => {
-                  e.preventDefault();
+                onClick={() => {
                   smoothScroll('home');
-                  setIsHamburgerOpen(false);
+                  setIsHamburgerOpen(false); // Tutup hamburger saat item ditekan
                 }}
                 className="block px-4 py-2 hover:bg-blue-700 transition-colors"
               >

@@ -1,8 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
-import AdminHeader from '@/components/admin/AdminHeader';
 import AdminNavigation from '@/components/admin/AdminNavigation';
 import UsersTab from '@/components/admin/UsersTab';
 import TournamentsTab from '@/components/admin/TournamentsTab';
@@ -10,7 +8,7 @@ import TransactionsTab from '@/components/admin/TransactionsTab';
 import MatchSchedulesTab from '@/components/admin/MatchSchedulesTab';
 import SessionExpiredModal from '@/components/SessionExpiredModal';
 import TeamsTab from '@/components/admin/TeamsTab';
-
+import Link from 'next/link';
 const AdminPage = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -80,12 +78,26 @@ if (parsedUser.role !== 'admin' && parsedUser.role !== 'owner') {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gray-100 mt-16 overflow-auto">
       {/* Header Admin */}
-      <AdminHeader user={user} handleLogout={handleLogout} />
-      
-      <div className="container mx-auto  px-4 py-8">
-        <div className="bg-white h-screen rounded-xl shadow-lg overflow-hidden">
+      <div className="relative top-10 mb-4 border-b pb-4 px-4">
+        <div className="flex justify-between flex-wrap gap-4">
+          <button
+            onClick={handleLogout}
+            className="px-6 py-3 bg-red-600 text-white rounded-lg shadow hover:bg-red-700 transition duration-300"
+          >
+            Logout
+          </button>
+          <Link
+            href="/"
+            className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg shadow hover:bg-gray-300 transition duration-300"
+          >
+            Kembali ke Beranda
+          </Link>
+        </div>
+      </div>
+      <div className="container mx-auto px-4 py-8 overflow-auto">
+        <div className="bg-white h-screen rounded-xl shadow-lg overflow-auto">
           {/* Tab Navigation */}
           <AdminNavigation activeTab={activeTab} setActiveTab={setActiveTab} user={user} />
           
@@ -99,20 +111,7 @@ if (parsedUser.role !== 'admin' && parsedUser.role !== 'owner') {
           </div>
         </div>
         
-        <div className="mt-6 text-center">
-          <button
-            onClick={() => router.push('/')}
-            className="px-6 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition duration-300 mx-2"
-          >
-            Kembali ke Beranda
-          </button>
-          <button
-            onClick={handleLogout}
-            className="px-6 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition duration-300 mx-2"
-          >
-            Logout
-          </button>
-        </div>
+        
       </div>
       
       {/* Modal untuk sesi yang telah berakhir */}

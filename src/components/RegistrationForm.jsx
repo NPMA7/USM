@@ -31,7 +31,8 @@ export default function RegistrationForm({
   isLoggedIn,
   userData,
   error,
-  checkTeamNameAvailability
+  checkTeamNameAvailability,
+  checkUserRegistration
 }) {
   // State untuk form kedua (detail tim)
   const [currentStep, setCurrentStep] = useState(1); // 1: Form transaksi, 2: Form detail tim
@@ -49,8 +50,9 @@ export default function RegistrationForm({
     }
   }, [isLoggedIn, userData, setName, setEmail, setWhatsapp]);
 
-  const handleChatCS = () => {
-    window.open(`https://wa.me/6288222810681`, '_blank');
+const handleChatCS = () => {
+    const csNumber = process.env.NEXT_PUBLIC_CS_NUMBER;
+    window.open(`https://wa.me/${csNumber}`, '_blank');
   };
 
   const handleWhatsappChange = (e) => {
@@ -140,11 +142,16 @@ export default function RegistrationForm({
   };
 
   // Fungsi untuk menangani submit form
-  const handleSubmitForm = () => {
+  const handleSubmitForm = async () => {
     if (teamDetailsValid) {
-      console.log("Mengirim data tim:", { captainNickname, captainGameId, tournamentName });
-      
       // Kirim data transaksi dan detail tim
+      console.log("Tournament Name for Registration:", tournamentName); // Log nama turnamen yang digunakan untuk pendaftaran
+      const isRegistered = await checkUserRegistration(userData, tournamentName);
+      if (isRegistered) {
+        alert("Anda sudah mendaftarkan tim untuk turnamen ini. Satu pengguna hanya dapat mendaftarkan satu tim per turnamen.");
+        return;
+      }
+
       handlePayment({
         captainNickname,
         captainGameId,

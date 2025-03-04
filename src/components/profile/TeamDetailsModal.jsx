@@ -36,37 +36,7 @@ const TeamDetailsModal = ({ teamDetails, setShowTeamDetailsModal }) => {
               </div>
             </div>
             
-            <div>
-              <h3 className="text-lg font-semibold mb-2">Anggota Tim</h3>
-              <div className="space-y-4">
-                {teamDetails.map((member, index) => (
-                  <div key={index} className="bg-gray-50 p-4 rounded-lg">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-sm text-gray-500">Nama Pemain</p>
-                        <p className="font-medium">{member.player_name || 'Tidak tersedia'}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500">ID Game</p>
-                        <p className="font-medium">{member.player_id || 'Tidak tersedia'}</p>
-                      </div>
-                      {member.player_role && (
-                        <div>
-                          <p className="text-sm text-gray-500">Role</p>
-                          <p className="font-medium">{member.player_role}</p>
-                        </div>
-                      )}
-                      {member.player_phone && (
-                        <div>
-                          <p className="text-sm text-gray-500">Nomor HP</p>
-                          <p className="font-medium">{member.player_phone}</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+            
           </div>
           
           <div className="mt-6 flex justify-end">
