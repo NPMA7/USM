@@ -272,6 +272,7 @@ export default function Home() {
                 captain_game_id: parsedTeamData.captainGameId,
                 email: email,
                 tournament: tournament,
+                tournament_name: tournamentName,
                 created_at: formattedTime
               };
               
@@ -519,7 +520,7 @@ export default function Home() {
         // Ambil semua turnamen yang ada
         const { data: tournaments, error: tournamentError } = await supabase
           .from('tournaments')
-          .select('id, game');
+          .select('id, name');
         
         if (tournamentError) {
           console.error('Error mengambil data turnamen:', tournamentError);
@@ -534,11 +535,11 @@ export default function Home() {
           const { count, error } = await supabase
             .from('transactions')
             .select('*', { count: 'exact' })
-            .eq('tournament', tournament.game)
+            .eq('tournament_name', tournament.name)
             .eq('transaction_status', 'settlement');
           
           if (!error) {
-            teamsCount[tournament.game] = count || 0;
+            teamsCount[tournament.name] = count || 0;
           }
         }
         
@@ -581,7 +582,7 @@ export default function Home() {
         // Ambil semua turnamen yang ada
         const { data: tournaments, error: tournamentError } = await supabase
           .from('tournaments')
-          .select('game');
+          .select('name');
 
         if (tournamentError || !tournaments) {
           return;
@@ -595,17 +596,17 @@ export default function Home() {
           const { count, error } = await supabase
             .from('transactions')
             .select('*', { count: 'exact' })
-            .eq('tournament', tournament.game)
+            .eq('tournament_name', tournament.name)
             .eq('transaction_status', 'settlement');
 
           if (!error) {
-            teamsCount[tournament.game] = count || 0;
+            teamsCount[tournament.name] = count || 0;
           }
         }
 
         // Update state dengan jumlah tim dari database
-        for (const [game, count] of Object.entries(teamsCount)) {
-          updateRegisteredTeams(game, count);
+        for (const [name, count] of Object.entries(teamsCount)) {
+          updateRegisteredTeams(name, count);
         }
       } catch (error) {
         // Handle error
@@ -623,7 +624,7 @@ export default function Home() {
         .from('transactions')
         .select('*')
         .eq('email', userData.email)
-        .eq('tournament', tournamentType)
+        .eq('tournament_name', tournamentType)
         .eq('transaction_status', 'settlement'); // Hanya cek yang sudah settlement
       
       if (error) {
@@ -755,18 +756,15 @@ export default function Home() {
                   tournamentData.map((tournament) => (
                     <TournamentCard 
                       key={tournament.id}
-                      title={tournament.name} 
-                      price={tournament.price} 
-                      image={tournament.image_url || "https://via.placeholder.com/400x200?text=Turnamen+Gaming"} 
+                      title={tournament.name}
+                      price={tournament.price}
+                      image={tournament.image_url || "https://via.placeholder.com/400x200?text=Turnamen+Gaming"}
                       onSelect={handleTournamentSelect}
-                      type={tournament.game}
                       description={tournament.description}
-                      registeredTeams={registeredTeams[tournament.game] || 0}
+                      registeredTeams={registeredTeams[tournament.name] || 0}
                       maxTeams={tournament.max_teams}
                       isLoading={isLoading}
                       tournament={tournament}
-                      refreshTournamentData={fetchTournaments}
-                      game={tournament.game}
                     />
                   ))
                 ) : (

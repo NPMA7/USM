@@ -13,7 +13,6 @@ export default function TournamentCard({
   registeredTeams, 
   maxTeams = 128, // Default value jika tidak diberikan
   isLoading,
-  game,
   tournament
 }) {
   const { updateRegisteredTeams } = useTeams();
@@ -36,12 +35,13 @@ export default function TournamentCard({
 
         const user = JSON.parse(userData);
         
-         const { data, error } = await supabase
+        // Periksa pendaftaran berdasarkan email dan tournament_name
+        const { data, error } = await supabase
           .from('transactions')
           .select('*')
           .eq('email', user.email)
-          .eq('tournament', type);
-        
+          .eq('tournament_name', tournament.name); // Pastikan title adalah nama turnamen yang benar
+
         if (error) {
           console.error('Error memeriksa pendaftaran:', error.message || JSON.stringify(error));
         } else {
@@ -55,7 +55,7 @@ export default function TournamentCard({
     };
 
     checkUserRegistration();
-  }, [type]);
+  }, [tournament.name]);
 
   useEffect(() => {
     const fetchTournamentStatus = async () => {
@@ -93,7 +93,7 @@ export default function TournamentCard({
         const { count, error } = await supabase
           .from('transactions')
           .select('*', { count: 'exact' })
-          .eq('tournament', type)
+          .eq('tournament_name', tournament.name)
           .eq('transaction_status', 'settlement');
 
         if (error) {
@@ -101,7 +101,7 @@ export default function TournamentCard({
           return;
         }
 
-        updateRegisteredTeams(type, count || 0);
+        updateRegisteredTeams(tournament.name, count || 0);
       } catch (error) {
         console.error('Error fetching registered teams:', error);
       }
@@ -112,7 +112,7 @@ export default function TournamentCard({
     
     // Cleanup interval on component unmount
     return () => clearInterval(intervalId);
-  }, [type, updateRegisteredTeams]);
+  }, [tournament.name, updateRegisteredTeams]);
 
   return (
     <div className="bg-white w-full rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
@@ -145,7 +145,7 @@ export default function TournamentCard({
       </div>
       
       <div className="px-6 pb-6">
-          <p className="text-xl my-2 font-bold">Game: {game}</p>
+          <p className="text-xl my-2 font-bold">Game: {tournament.game}</p>
 
         <p className="text-gray-600 mb-4">{description}</p>
         
@@ -168,12 +168,12 @@ export default function TournamentCard({
           <ProgressBar 
             current={registeredTeams} 
             total={currentMaxTeams}
-            tournament={type}
+            tournament_name={tournament.name} 
           />
         )}
 
         <button
-          onClick={() => onSelect(type, tournament.id)}
+          onClick={() => onSelect(tournament.game, tournament.id)}
           disabled={isLoading || registeredTeams >= currentMaxTeams || isUserRegistered || checkingRegistration || tournamentStatus !== 'open'}
           className={`w-full mt-6 ${
             isLoading || checkingRegistration

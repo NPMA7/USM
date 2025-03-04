@@ -6,10 +6,10 @@ const TeamContext = createContext();
 export const TeamProvider = ({ children }) => {
   const [registeredTeams, setRegisteredTeams] = useState(0);
 
-  const updateRegisteredTeams = (tournament, count) => {
+  const updateRegisteredTeams = (tournament_name, count) => {
     setRegisteredTeams((prev) => ({
       ...prev,
-      [tournament]: count,
+      [tournament_name]: count,
     }));
   };
 

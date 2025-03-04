@@ -1,9 +1,9 @@
 import { useTeams } from "@/context/TeamContext";
 
-export default function ProgressBar({ total, tournament }) {
+export default function ProgressBar({ total, tournament_name }) {
   const { registeredTeams } = useTeams();
   
-  const currentTeams = registeredTeams[tournament] || 0;
+  const currentTeams = registeredTeams[tournament_name] || 0;
   const percentage = (currentTeams / total) * 100;
 
   return (

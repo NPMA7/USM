@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
+import InfoPopup from '@/components/InfoPopup';
+import AdminConfirmationModal from '@/components/admin/AdminConfirmationModal';
 
 const roundNames = [
   'Grup Stage',
@@ -34,10 +36,21 @@ export default function MatchSchedulesTab() {
   const [selectedMatch, setSelectedMatch] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editResult, setEditResult] = useState('');
+  const [infoMessage, setInfoMessage] = useState('');
+  const [showInfoPopup, setShowInfoPopup] = useState(false);
+  const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+  const [matchToDelete, setMatchToDelete] = useState(null);
+  const [scheduleCount, setScheduleCount] = useState(0);
 
   useEffect(() => {
     fetchTournaments();
     fetchMatches();
+    checkScheduleCount();
+    const intervalId = setInterval(() => {
+      checkScheduleCount();
+    }, 5000);
+
+    return () => clearInterval(intervalId);
   }, []);
 
   useEffect(() => {
@@ -75,45 +88,98 @@ export default function MatchSchedulesTab() {
         .select(`
           id,
           team_name,
-          tournament
+          tournament_name
         `)
-        .eq('tournament', tournamentData.game);
+        .eq('tournament_name', tournamentData.name);
 
       if (error) throw error;
 
       setRegisteredTeams(data || []);
     } catch (error) {
       console.error('Error mengambil data tim:', error.message);
-      alert('Gagal mengambil data tim: ' + error.message);
+      setInfoMessage('Gagal mengambil data tim: ' + error.message);
+      setShowInfoPopup(true);
+    }
+  };
+
+  const fetchTeamsForTournament = async (tournamentName) => {
+    try {
+        // Ambil semua tim berdasarkan tournament_name yang relevan
+        const { data: teamsData, error: teamsError } = await supabase
+            .from('team_details')
+            .select('*')
+            .eq('tournament_name', tournamentName); // Filter berdasarkan tournament_name
+
+        if (teamsError) throw teamsError;
+
+        return teamsData;
+    } catch (error) {
+        console.error('Error mengambil data tim:', error.message);
+        return [];
     }
   };
 
   const fetchMatches = async () => {
     try {
-      const { data, error } = await supabase
+        setLoading(true);
+        
+        // Ambil nama turnamen yang relevan
+        const tournamentName = 'NamaTurnamenYangDipilih'; // Ganti dengan nama turnamen yang relevan
+
+        // Ambil semua jadwal pertandingan
+        const { data: matchesData, error: matchesError } = await supabase
+            .from('match_schedules')
+            .select(`
+                *,
+                tournaments:tournament_id(name)
+            `)
+            .order('match_date', { ascending: true });
+
+        if (matchesError) throw matchesError;
+
+        // Ambil tim yang sesuai dengan tournament_name
+        const teamsData = await fetchTeamsForTournament(tournamentName);
+
+        // Transformasi data jadwal pertandingan
+        const transformedData = matchesData.map(match => ({
+            ...match,
+            team1: teamsData.find(team => team.id === match.team1_id) || {},
+            team2: teamsData.find(team => team.id === match.team2_id) || {},
+        }));
+
+        // Filter untuk memastikan hanya tim yang sesuai dengan tournament_name yang dimuat
+        const filteredMatches = transformedData.filter(match => 
+            match.team1.tournament_name === tournamentName &&
+            match.team2.tournament_name === tournamentName
+        );
+
+        setMatches(filteredMatches);
+    } catch (error) {
+        console.error('Error mengambil data jadwal pertandingan:', error.message);
+        setInfoMessage('Gagal mengambil data jadwal pertandingan: ' + error.message);
+        setShowInfoPopup(true);
+    } finally {
+        setLoading(false);
+    }
+  };
+
+  const checkScheduleCount = async () => {
+    try {
+      const { count, error } = await supabase
         .from('match_schedules')
-        .select(`
-          *,
-          tournaments:tournament_id(name),
-          team1:team_details!team1_id(team_name),
-          team2:team_details!team2_id(team_name)
-        `)
-        .order('match_date', { ascending: true });
-      
+        .select('*', { count: 'exact' });
+
       if (error) throw error;
 
-      const transformedData = data.map(match => ({
-        ...match,
-        team1_name: match.team1?.team_name || 'TBD',
-        team2_name: match.team2?.team_name || 'TBD',
-        winning_team_name: match.winning_team_name || 'Belum ada hasil',
-        losing_team_name: match.losing_team_name || 'Belum ada hasil'
-      }));
-
-      setMatches(transformedData);
+      setScheduleCount(prevCount => {
+        if (count !== prevCount) {
+          fetchMatches();
+          return count;
+        }
+        return prevCount;
+      });
     } catch (error) {
-      console.error('Error mengambil jadwal pertandingan:', error);
-      alert('Gagal mengambil jadwal pertandingan: ' + (error.message || 'Terjadi kesalahan jaringan. Silakan coba lagi.'));
+      console.error('Error checking schedule count:', error);
     }
   };
 
@@ -141,7 +207,8 @@ export default function MatchSchedulesTab() {
 
       if (error) throw error;
 
-      alert('Jadwal pertandingan berhasil ditambahkan!');
+      setInfoMessage('Jadwal pertandingan berhasil ditambahkan!');
+      setShowInfoPopup(true);
       fetchMatches();
       
       setTeam1Id('');
@@ -154,26 +221,35 @@ export default function MatchSchedulesTab() {
       
     } catch (error) {
       console.error('Error menambahkan jadwal:', error.message);
-      alert('Gagal menambahkan jadwal pertandingan: ' + error.message);
+      setInfoMessage('Gagal menambahkan jadwal pertandingan: ' + error.message);
+      setShowInfoPopup(true);
     }
   };
 
-  const deleteMatch = async (matchId) => {
-    if (window.confirm('Apakah Anda yakin ingin menghapus jadwal ini?')) {
-      try {
-        const { error } = await supabase
-          .from('match_schedules')
-          .delete()
-          .eq('id', matchId);
+  const deleteMatch = (matchId) => {
+    setMatchToDelete(matchId);
+    setShowConfirmationModal(true);
+  };
 
-        if (error) throw error;
+  const confirmDeleteMatch = async () => {
+    try {
+      const { error } = await supabase
+        .from('match_schedules')
+        .delete()
+        .eq('id', matchToDelete);
 
-        alert('Jadwal berhasil dihapus!');
-        fetchMatches();
-      } catch (error) {
-        console.error('Error menghapus jadwal:', error);
-        alert('Gagal menghapus jadwal');
-      }
+      if (error) throw error;
+
+      setInfoMessage('Jadwal berhasil dihapus!');
+      setShowInfoPopup(true);
+      fetchMatches();
+    } catch (error) {
+      console.error('Error menghapus jadwal:', error);
+      setInfoMessage('Gagal menghapus jadwal');
+      setShowInfoPopup(true);
+    } finally {
+      setShowConfirmationModal(false);
+      setMatchToDelete(null);
     }
   };
 
@@ -225,11 +301,13 @@ export default function MatchSchedulesTab() {
       if (updateError) throw updateError;
 
       fetchMatches();
-      alert(`Status pertandingan berhasil diubah menjadi ${getStatusLabel(nextStatus)}`);
+      setInfoMessage(`Status pertandingan berhasil diubah menjadi ${getStatusLabel(nextStatus)}`);
+      setShowInfoPopup(true);
 
     } catch (error) {
       console.error('Error mengupdate status pertandingan:', error.message);
-      alert('Gagal mengupdate status pertandingan: ' + error.message);
+      setInfoMessage('Gagal mengupdate status pertandingan: ' + error.message);
+      setShowInfoPopup(true);
     }
   };
 
@@ -281,13 +359,15 @@ export default function MatchSchedulesTab() {
 
       if (error) throw error;
 
-      alert('Jadwal pertandingan berhasil diperbarui!');
+      setInfoMessage('Jadwal pertandingan berhasil diperbarui!');
+      setShowInfoPopup(true);
       fetchMatches();
       setShowEditScheduleModal(false);
       
     } catch (error) {
       console.error('Error mengupdate jadwal:', error.message);
-      alert('Gagal mengupdate jadwal pertandingan: ' + error.message);
+      setInfoMessage('Gagal mengupdate jadwal pertandingan: ' + error.message);
+      setShowInfoPopup(true);
     }
   };
 
@@ -312,12 +392,14 @@ export default function MatchSchedulesTab() {
 
         if (error) throw error;
 
-        alert('Skor dan hasil berhasil diperbarui!');
+        setInfoMessage('Skor dan hasil berhasil diperbarui!');
+        setShowInfoPopup(true);
         fetchMatches();
         setShowEditScoreModal(false);
     } catch (error) {
         console.error('Error updating score and result:', error);
-        alert('Gagal memperbarui skor dan hasil: ' + (error.message || 'Terjadi kesalahan jaringan. Silakan coba lagi.'));
+        setInfoMessage('Gagal memperbarui skor dan hasil: ' + (error.message || 'Terjadi kesalahan jaringan. Silakan coba lagi.'));
+        setShowInfoPopup(true);
     }
   };
 
@@ -340,17 +422,36 @@ export default function MatchSchedulesTab() {
 
       if (error) throw error;
 
-      alert('Jadwal pertandingan berhasil diperbarui!');
+      setInfoMessage('Jadwal pertandingan berhasil diperbarui!');
+      setShowInfoPopup(true);
       fetchMatches();
       setShowEditModal(false);
     } catch (error) {
       console.error('Error mengedit jadwal:', error.message);
-      alert('Gagal mengedit jadwal pertandingan: ' + error.message);
+      setInfoMessage('Gagal mengedit jadwal pertandingan: ' + error.message);
+      setShowInfoPopup(true);
     }
   };
 
   return (
     <div>
+      {showInfoPopup && (
+        <InfoPopup 
+          message={infoMessage} 
+          onClose={() => setShowInfoPopup(false)} 
+          isSuccess={infoMessage.includes('berhasil')} 
+        />
+      )}
+
+      {showConfirmationModal && (
+        <AdminConfirmationModal 
+          message="Apakah Anda yakin ingin menghapus jadwal ini?"
+          onConfirm={confirmDeleteMatch}
+          onCancel={() => setShowConfirmationModal(false)}
+          isLoading={loading}
+        />
+      )}
+
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-semibold">Manajemen Jadwal Pertandingan</h2>
         <button
@@ -363,7 +464,7 @@ export default function MatchSchedulesTab() {
 
       {/* Modal Tambah Jadwal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-transparent backdrop-blur-xl flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex justify-between items-center mb-4">
@@ -433,12 +534,10 @@ export default function MatchSchedulesTab() {
                       className="w-full p-2 border rounded"
                     >
                       <option value="">Pilih Tim 2</option>
-                      {registeredTeams
-                        .filter(team => team.id !== team1Id)
-                        .map((team) => (
-                          <option key={team.id} value={team.id}>
-                            {team.team_name}
-                          </option>
+                      {registeredTeams.map((team) => (
+                        <option key={team.id} value={team.id}>
+                          {team.team_name}
+                        </option>
                       ))}
                     </select>
                   </div>

@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
+import InfoPopup from '@/components/InfoPopup';
+import AdminConfirmationModal from '@/components/admin/AdminConfirmationModal';
 
 export default function TournamentsTab() {
   const [tournaments, setTournaments] = useState([]);
@@ -23,8 +25,27 @@ export default function TournamentsTab() {
   const [imagePreview, setImagePreview] = useState('');
   const [compressing, setCompressing] = useState(false);
 
+  // State untuk InfoPopup
+  const [showPopup, setShowPopup] = useState(false);
+  const [popupMessage, setPopupMessage] = useState('');
+  const [isSuccess, setIsSuccess] = useState(false);
+
+  // State untuk konfirmasi penghapusan
+  const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+  const [tournamentToDelete, setTournamentToDelete] = useState(null);
+  const [tournamentToDeleteImage, setTournamentToDeleteImage] = useState(null);
+
+  const [tournamentCount, setTournamentCount] = useState(0); // State untuk menyimpan jumlah turnamen
+
   useEffect(() => {
     fetchTournaments();
+    checkTournamentCount(); // Panggil sekali saat komponen dimuat
+    const intervalId = setInterval(() => {
+      checkTournamentCount(); // Memanggil fungsi untuk memeriksa jumlah turnamen setiap 5 detik
+    }, 5000);
+
+    // Cleanup interval saat komponen unmount
+    return () => clearInterval(intervalId);
   }, []);
 
   const fetchTournaments = async () => {
@@ -39,9 +60,32 @@ export default function TournamentsTab() {
       setTournaments(data || []);
     } catch (error) {
       console.error('Error mengambil data turnamen:', error);
-      alert('Gagal mengambil data turnamen: ' + error.message);
+      setPopupMessage('Gagal mengambil data turnamen: ' + error.message);
+      setIsSuccess(false);
+      setShowPopup(true);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const checkTournamentCount = async () => {
+    try {
+      const { count, error } = await supabase
+        .from('tournaments')
+        .select('*', { count: 'exact' });
+
+      if (error) throw error;
+
+      // Jika jumlah turnamen berubah, ambil data turnamen lagi
+      setTournamentCount(prevCount => {
+        if (count !== prevCount) {
+          fetchTournaments(); // Refresh data jika ada perubahan
+          return count; // Kembalikan nilai baru
+        }
+        return prevCount; // Kembalikan nilai lama jika tidak ada perubahan
+      });
+    } catch (error) {
+      console.error('Error checking tournament count:', error);
     }
   };
 
@@ -167,7 +211,9 @@ export default function TournamentsTab() {
         }
       } catch (error) {
         console.error('Error saat memproses gambar:', error);
-        alert('Gagal memproses gambar. Silakan coba lagi.');
+        setPopupMessage('Gagal memproses gambar. Silakan coba lagi.');
+        setIsSuccess(false);
+        setShowPopup(true);
       }
     }
   };
@@ -214,7 +260,9 @@ export default function TournamentsTab() {
       return data.publicUrl;
     } catch (error) {
       console.error('Error mengupload gambar:', error); // Debugging: Error saat upload
-      alert('Gagal mengupload gambar: ' + (error.message || JSON.stringify(error)));
+      setPopupMessage('Gagal mengupload gambar: ' + (error.message || JSON.stringify(error)));
+      setIsSuccess(false);
+      setShowPopup(true);
       return imageUrl; // Kembalikan URL gambar lama jika gagal
     } finally {
       setUploadingImage(false);
@@ -232,7 +280,9 @@ export default function TournamentsTab() {
       if (image) {
         finalImageUrl = await uploadImage();
         if (!finalImageUrl) {
-          alert('Gagal mengupload gambar turnamen');
+          setPopupMessage('Gagal mengupload gambar turnamen');
+          setIsSuccess(false);
+          setShowPopup(true);
           setLoading(false);
           return;
         }
@@ -264,7 +314,9 @@ export default function TournamentsTab() {
           
         if (error) throw error;
         
-        alert('Turnamen berhasil diperbarui');
+        setPopupMessage('Turnamen berhasil diperbarui');
+        setIsSuccess(true);
+        setShowPopup(true);
       } else {
         // Tambah turnamen baru
         const { error } = await supabase
@@ -273,7 +325,9 @@ export default function TournamentsTab() {
           
         if (error) throw error;
         
-        alert('Turnamen berhasil ditambahkan');
+        setPopupMessage('Turnamen berhasil ditambahkan');
+        setIsSuccess(true);
+        setShowPopup(true);
       }
       
       // Refresh daftar turnamen
@@ -282,7 +336,9 @@ export default function TournamentsTab() {
       resetForm();
     } catch (error) {
       console.error('Error menyimpan turnamen:', error);
-      alert('Gagal menyimpan turnamen: ' + error.message);
+      setPopupMessage('Gagal menyimpan turnamen: ' + error.message);
+      setIsSuccess(false);
+      setShowPopup(true);
     } finally {
       setLoading(false);
     }
@@ -340,73 +396,116 @@ export default function TournamentsTab() {
   };
 
   const handleDeleteTournament = async (id) => {
-    if (!confirm('Apakah Anda yakin ingin menghapus turnamen ini?')) return;
-    
+    setTournamentToDelete(id); // Set turnamen yang akan dihapus
+    setShowConfirmationModal(true); // Tampilkan modal konfirmasi
+  };
+
+  const confirmDeleteTournament = async () => {
+    if (!tournamentToDelete) return;
+
     try {
       setLoading(true);
       
       // Cari turnamen yang akan dihapus untuk mendapatkan URL gambar
-      const tournamentToDelete = tournaments.find(t => t.id === id);
+      const tournamentToDeleteData = tournaments.find(t => t.id === tournamentToDelete);
       
-      if (tournamentToDelete && tournamentToDelete.image_url) {
+      if (tournamentToDeleteData && tournamentToDeleteData.image_url) {
         // Hapus gambar dari bucket storage
-        await deleteImageFromBucket(tournamentToDelete.image_url);
+        await deleteImageFromBucket(tournamentToDeleteData.image_url);
       }
       
       // Hapus data turnamen dari database
       const { error } = await supabase
         .from('tournaments')
         .delete()
-        .eq('id', id);
+        .eq('id', tournamentToDelete);
         
       if (error) throw error;
       
-      alert('Turnamen berhasil dihapus');
+      setPopupMessage('Turnamen berhasil dihapus');
+      setIsSuccess(true);
+      setShowPopup(true); // Tampilkan InfoPopup
       fetchTournaments();
     } catch (error) {
       console.error('Error menghapus turnamen:', error);
-      alert('Gagal menghapus turnamen: ' + error.message);
+      setPopupMessage('Gagal menghapus turnamen: ' + error.message);
+      setIsSuccess(false);
+      setShowPopup(true); // Tampilkan InfoPopup
     } finally {
       setLoading(false);
+      setShowConfirmationModal(false); // Sembunyikan modal konfirmasi
+      setTournamentToDelete(null); // Reset turnamen yang akan dihapus
     }
   };
 
   const handleDeleteImage = async (tournament) => {
-    if (!tournament.image_url) {
-      alert('Tidak ada gambar untuk dihapus');
-      return;
-    }
+    setTournamentToDeleteImage(tournament); // Set turnamen yang gambarnya akan dihapus
+    setShowConfirmationModal(true); // Tampilkan modal konfirmasi
+  };
 
-    if (!confirm('Apakah Anda yakin ingin menghapus gambar turnamen ini?')) {
-      return;
-    }
+  const confirmDeleteImage = async () => {
+    if (!tournamentToDeleteImage) return;
 
     try {
       setLoading(true);
       
       // Hapus gambar dari bucket
-      await deleteImageFromBucket(tournament.image_url);
+      await deleteImageFromBucket(tournamentToDeleteImage.image_url);
       
       // Update data turnamen tanpa gambar
       const { error } = await supabase
         .from('tournaments')
         .update({ image_url: null })
-        .eq('id', tournament.id);
+        .eq('id', tournamentToDeleteImage.id);
         
       if (error) throw error;
       
-      alert('Gambar turnamen berhasil dihapus');
+      setPopupMessage('Gambar turnamen berhasil dihapus');
+      setIsSuccess(true);
+      setShowPopup(true); // Tampilkan InfoPopup
       fetchTournaments();
     } catch (error) {
       console.error('Error menghapus gambar turnamen:', error);
-      alert('Gagal menghapus gambar turnamen: ' + error.message);
+      setPopupMessage('Gagal menghapus gambar turnamen: ' + error.message);
+      setIsSuccess(false);
+      setShowPopup(true); // Tampilkan InfoPopup
     } finally {
       setLoading(false);
+      setShowConfirmationModal(false); // Sembunyikan modal konfirmasi
+      setTournamentToDeleteImage(null); // Reset turnamen yang gambarnya akan dihapus
     }
   };
 
   return (
     <div>
+      {/* InfoPopup */}
+      {showPopup && (
+        <InfoPopup 
+          message={popupMessage} 
+          isSuccess={isSuccess} 
+          onClose={() => setShowPopup(false)} 
+        />
+      )}
+
+      {/* AdminConfirmationModal untuk menghapus turnamen */}
+      {showConfirmationModal && !tournamentToDeleteImage && (
+        <AdminConfirmationModal 
+          message="Apakah Anda yakin ingin menghapu ini?"
+          onConfirm={confirmDeleteTournament}
+          onCancel={() => setShowConfirmationModal(false)}
+          isLoading={loading}
+        />
+      )}
+
+      {/* AdminConfirmationModal untuk menghapus gambar */}
+      {showConfirmationModal && tournamentToDeleteImage && (
+        <AdminConfirmationModal 
+          message="Apakah Anda yakin ingin menghapus ini?"
+          onConfirm={confirmDeleteImage}
+          onCancel={() => setShowConfirmationModal(false)}
+          isLoading={loading}
+        />
+      )}
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-semibold">Manajemen Turnamen</h2>
         <button
@@ -442,8 +541,8 @@ export default function TournamentsTab() {
                   </div>
                 )}
                 
-                <div className="absolute top-2 right-2">
-                  <span className={`px-2 py-1 text-xs font-semibold text-white rounded ${
+                <div className="absolute top-4 right-2">
+                  <span className={`px-6 py-3 text-md font-semibold text-white rounded ${
                     tournament.status === 'open' ? 'bg-green-500' : 
                     tournament.status === 'closed' ? 'bg-red-500' : 'bg-yellow-500'
                   }`}>
@@ -472,18 +571,19 @@ export default function TournamentsTab() {
                     Edit
                   </button>
                   <button
-                    onClick={() => handleDeleteTournament(tournament.id)}
-                    className="px-3 py-1 bg-red-100 text-red-600 rounded hover:bg-red-200"
-                  >
-                    Hapus
-                  </button>
-                  <button
                     onClick={() => handleDeleteImage(tournament)}
                     className="px-3 py-1 bg-orange-100 text-orange-600 rounded hover:bg-orange-200"
                     disabled={!tournament.image_url}
                   >
                     Hapus Gambar
                   </button>
+                  <button
+                    onClick={() => handleDeleteTournament(tournament.id)}
+                    className="px-3 py-1 bg-red-100 text-red-600 rounded hover:bg-red-200"
+                  >
+                    Hapus
+                  </button>
+                 
                 </div>
               </div>
             </div>

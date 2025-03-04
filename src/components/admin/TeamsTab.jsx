@@ -9,10 +9,17 @@ export default function TeamsTab() {
   const [tournaments, setTournaments] = useState([]);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedTeam, setSelectedTeam] = useState(null);
+  const [teamCount, setTeamCount] = useState(0);
 
   useEffect(() => {
     fetchTeams();
     fetchTournaments();
+    checkTeamCount();
+    const intervalId = setInterval(() => {
+      checkTeamCount();
+    }, 5000);
+
+    return () => clearInterval(intervalId);
   }, []);
 
   const fetchTournaments = async () => {
@@ -63,6 +70,26 @@ export default function TeamsTab() {
       alert('Gagal mengambil data tim');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const checkTeamCount = async () => {
+    try {
+      const { count, error } = await supabase
+        .from('team_details')
+        .select('*', { count: 'exact' });
+
+      if (error) throw error;
+
+      setTeamCount(prevCount => {
+        if (count !== prevCount) {
+          fetchTeams();
+          return count;
+        }
+        return prevCount;
+      });
+    } catch (error) {
+      console.error('Error checking team count:', error);
     }
   };
 
@@ -167,9 +194,8 @@ export default function TeamsTab() {
                     <div className="text-sm text-gray-500">{team.captain_game_id}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">
-                      {team.transactions?.tournament}
-                    </div>
+                    <div className="text-sm font-medium text-gray-900">{team.transactions?.tournament}</div>
+                    <div className="text-sm text-gray-500">{team.transactions?.tournament_name}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${

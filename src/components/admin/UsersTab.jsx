@@ -1,18 +1,34 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
+import InfoPopup from '@/components/InfoPopup';
+import AdminConfirmationModal from '@/components/admin/AdminConfirmationModal';
 
 export default function UsersTab() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [userCount, setUserCount] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUser, setSelectedUser] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [roleFilter, setRoleFilter] = useState('all');
   const [currentUserRole, setCurrentUserRole] = useState('');
+  const [infoMessage, setInfoMessage] = useState('');
+  const [showInfoPopup, setShowInfoPopup] = useState(false);
+  const [infoType, setInfoType] = useState('success');
+  const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     fetchUsers();
     getCurrentUserRole();
+    checkUserCount();
+    // Polling setiap 5 detik untuk memeriksa jumlah pengguna
+    const intervalId = setInterval(() => {
+      checkUserCount();
+    }, 5000);
+
+    // Cleanup interval saat komponen unmount
+    return () => clearInterval(intervalId);
   }, []);
 
   const getCurrentUserRole = () => {
@@ -26,17 +42,43 @@ export default function UsersTab() {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      const {  data, error } = await supabase
         .from('users')
         .select('*')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
+
       setUsers(data || []);
+
     } catch (error) {
       console.error('Error fetching users:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const checkUserCount = async () => {
+    try {
+      const { count, error } = await supabase
+        .from('users')
+        .select('*', { count: 'exact' });
+
+      if (error) throw error;
+
+
+      // Jika jumlah pengguna berubah, ambil data pengguna lagi
+      setUserCount(prevCount => {
+        if (count !== prevCount) {
+          fetchUsers(); // Hanya panggil fetchUsers jika ada perubahan
+          setInfoMessage('Jumlah pengguna telah diperbarui');
+          setInfoType('success');
+          return count; // Kembalikan nilai baru
+        }
+        return prevCount; // Kembalikan nilai lama jika tidak ada perubahan
+      });
+    } catch (error) {
+      console.error('Error checking user count:', error);
     }
   };
 
@@ -54,31 +96,53 @@ export default function UsersTab() {
         user.id === userId ? { ...user, role: newRole } : user
       ));
       
-      alert('Role pengguna berhasil diperbarui');
+      setInfoMessage('Role pengguna berhasil diperbarui');
+      setInfoType('success');
+      setShowInfoPopup(true);
     } catch (error) {
       console.error('Error updating user role:', error);
-      alert('Gagal memperbarui role pengguna');
+      setInfoMessage('Gagal memperbarui role pengguna');
+      setInfoType('error');
+      setShowInfoPopup(true);
     }
   };
 
-  const handleDeleteUser = async (userId) => {
-    if (!confirm('Apakah Anda yakin ingin menghapus pengguna ini?')) return;
-    
-    try {
-      const { error } = await supabase
-        .from('users')
-        .delete()
-        .eq('id', userId);
+  const handleDeleteUser = (user) => {
+    setSelectedUser(user);
+    setShowConfirmationModal(true);
+  };
 
-      if (error) throw error;
-      
-      // Update local state
-      setUsers(users.filter(user => user.id !== userId));
-      
-      alert('Pengguna berhasil dihapus');
+  const confirmDeleteUser = async () => {
+    if (!selectedUser) return;
+
+    setIsLoading(true);
+
+    try {
+      const response = await fetch('/api/delete-user', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userId: selectedUser.id }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Gagal menghapus pengguna');
+      }
+      setInfoMessage('Pengguna berhasil dihapus');
+      setInfoType('success');
+      setShowInfoPopup(true);
+      setShowConfirmationModal(false); // Tutup modal konfirmasi
+      fetchUsers(); // Refresh daftar pengguna
     } catch (error) {
       console.error('Error deleting user:', error);
-      alert('Gagal menghapus pengguna');
+      setInfoMessage('Gagal menghapus pengguna');
+      setInfoType('error');
+      setShowInfoPopup(true);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -110,7 +174,7 @@ export default function UsersTab() {
     }
     return false;
   };
-
+  
   // Menentukan apakah pengguna saat ini dapat menghapus pengguna tertentu
   const canDeleteUser = (userToDelete) => {
     if (currentUserRole === 'owner') {
@@ -134,6 +198,25 @@ export default function UsersTab() {
 
   return (
     <div>
+      {/* Popup untuk informasi */}
+      {showInfoPopup && (
+        <InfoPopup 
+          message={infoMessage} 
+          onClose={() => setShowInfoPopup(false)} 
+          isSuccess={infoType === 'success'} 
+        />
+      )}
+
+      {/* Modal konfirmasi untuk penghapusan pengguna */}
+      {showConfirmationModal && selectedUser && (
+        <AdminConfirmationModal 
+          message={`Apakah Anda yakin ingin menghapus pengguna @${selectedUser.username}?`} 
+          onConfirm={confirmDeleteUser} 
+          onCancel={() => setShowConfirmationModal(false)} 
+          isLoading={isLoading}
+        />
+      )}
+
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-semibold">Manajemen Pengguna</h2>
         <div className="flex space-x-2">
@@ -239,12 +322,14 @@ export default function UsersTab() {
                       Detail
                     </button>
                     {canDeleteUser(user) && (
-                      <button
-                        onClick={() => handleDeleteUser(user.id)}
-                        className="text-red-600 hover:text-red-900"
-                      >
-                        Hapus
-                      </button>
+                      <>
+                        <button
+                          onClick={() => handleDeleteUser(user)}
+                          className="text-red-600 hover:text-red-900"
+                        >
+                          Hapus
+                        </button>
+                      </>
                     )}
                   </td>
                 </tr>

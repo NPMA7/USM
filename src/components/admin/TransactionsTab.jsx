@@ -10,10 +10,17 @@ export default function TransactionsTab() {
   const [showModal, setShowModal] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState(null);
   const [tournaments, setTournaments] = useState([]);
+  const [transactionCount, setTransactionCount] = useState(0);
 
   useEffect(() => {
     fetchTransactions();
     fetchTournaments();
+    checkTransactionCount();
+    const intervalId = setInterval(() => {
+      checkTransactionCount();
+    }, 5000);
+
+    return () => clearInterval(intervalId);
   }, []);
 
   const fetchTransactions = async () => {
@@ -46,6 +53,26 @@ export default function TransactionsTab() {
     }
   };
 
+  const checkTransactionCount = async () => {
+    try {
+      const { count, error } = await supabase
+        .from('transactions')
+        .select('*', { count: 'exact' });
+
+      if (error) throw error;
+
+      setTransactionCount(prevCount => {
+        if (count !== prevCount) {
+          fetchTransactions();
+          return count;
+        }
+        return prevCount;
+      });
+    } catch (error) {
+      console.error('Error checking transaction count:', error);
+    }
+  };
+
   const viewTransactionDetails = (transaction) => {
     setSelectedTransaction(transaction);
     setShowModal(true);
@@ -57,7 +84,8 @@ export default function TransactionsTab() {
       transaction.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       transaction.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       transaction.team_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      transaction.order_id?.toLowerCase().includes(searchTerm.toLowerCase());
+      transaction.order_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      transaction.tournament_name?.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesStatus = statusFilter === 'all' || transaction.transaction_status === statusFilter;
     const matchesTournament = tournamentFilter === 'all' || transaction.tournament === tournamentFilter;
@@ -65,35 +93,20 @@ export default function TransactionsTab() {
     return matchesSearch && matchesStatus && matchesTournament;
   });
 
-  // Get unique tournaments from transactions
-  const uniqueTournaments = [...new Set(transactions.map(t => t.tournament))];
-
   return (
     <div>
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <h2 className="text-xl font-semibold">Manajemen Transaksi</h2>
         <div className="flex flex-col md:flex-row gap-2">
           <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="p-2 border rounded"
-          >
-            <option value="all">Semua Status</option>
-            <option value="settlement">Sukses</option>
-            <option value="pending">Pending</option>
-            <option value="cancel">Dibatalkan</option>
-            <option value="expire">Kadaluarsa</option>
-          </select>
-          
-          <select
             value={tournamentFilter}
             onChange={(e) => setTournamentFilter(e.target.value)}
             className="p-2 border rounded"
           >
             <option value="all">Semua Turnamen</option>
-            {uniqueTournaments.map((tournament, index) => (
-              <option key={index} value={tournament}>
-                {tournament}
+            {tournaments.map((tournament, index) => (
+              <option key={index} value={tournament.name}>
+                {tournament.name}
               </option>
             ))}
           </select>
@@ -143,7 +156,7 @@ export default function TransactionsTab() {
                   Turnamen
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Jumlah
+                  Email
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
@@ -167,24 +180,21 @@ export default function TransactionsTab() {
                     <div className="text-sm text-gray-500">{transaction.name}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{transaction.tournament}</div>
+                    <div className="text-sm font-medium text-gray-900">{transaction.tournament_name}</div>
+                    <div className="text-sm text-gray-500">{transaction.tournament}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900">
-                      Rp {parseInt(transaction.gross_amount).toLocaleString('id-ID')}
+                      {transaction.email}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
                       transaction.transaction_status === 'settlement' ? 'bg-green-100 text-green-800' :
-                      transaction.transaction_status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-red-100 text-red-800'
+                        'bg-red-100 text-red-800'
                     }`}>
                       {transaction.transaction_status === 'settlement' ? 'Sukses' :
-                       transaction.transaction_status === 'pending' ? 'Pending' :
-                       transaction.transaction_status === 'cancel' ? 'Dibatalkan' :
-                       transaction.transaction_status === 'expire' ? 'Kadaluarsa' :
-                       transaction.transaction_status}
+                      transaction.transaction_status}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -229,31 +239,27 @@ export default function TransactionsTab() {
                 <p className="font-medium">{selectedTransaction.order_id}</p>
               </div>
               <div>
+                <p className="text-sm text-gray-500">Turnamen</p>
+                <p className="font-medium">{selectedTransaction.tournament_name}</p>
+              </div>
+
+              <div>
                 <p className="text-sm text-gray-500">Nama Tim</p>
                 <p className="font-medium">{selectedTransaction.team_name}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Turnamen</p>
+                <p className="text-sm text-gray-500">Divisi Game</p>
                 <p className="font-medium">{selectedTransaction.tournament}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Nama Pendaftar</p>
+                <p className="text-sm text-gray-500">Info Pendaftar</p>
                 <p className="font-medium">{selectedTransaction.name}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Email</p>
                 <p className="font-medium">{selectedTransaction.email}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">WhatsApp</p>
                 <p className="font-medium">{selectedTransaction.whatsapp}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Jumlah</p>
+                <p className="text-sm text-gray-500">Info Pembayaran</p>
                 <p className="font-medium">Rp {parseInt(selectedTransaction.gross_amount).toLocaleString('id-ID')}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Metode Pembayaran</p>
                 <p className="font-medium">{selectedTransaction.payment_type}</p>
               </div>
               <div>
