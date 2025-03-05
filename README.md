@@ -64,7 +64,7 @@
 - Uji penghapusan pengguna oleh admin. ✅
 - Uji penambahan turnamen baru oleh admin. ✅
 - Uji penghapusan turnamen oleh admin. ✅
-- Uji pengelolaan jadwal pertandingan oleh admin.
+- Uji pengelolaan jadwal pertandingan oleh admin. ✅
 - Uji tampilan dan fungsionalitas modal konfirmasi penghapusan di halaman admin. ✅
 - Uji pengambilan data pengguna dan turnamen dari Supabase di halaman admin. ✅
 - Uji penanganan kesalahan saat admin mencoba menghapus pengguna yang tidak ada. ✅

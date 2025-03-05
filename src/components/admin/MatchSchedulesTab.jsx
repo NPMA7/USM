@@ -73,13 +73,17 @@ export default function MatchSchedulesTab({ tournamentName }) {
         .select('*');
       if (error) throw error;
       
+      // Log untuk memeriksa data turnamen yang diambil
+
       setTournaments(data);
       
       if (data.length > 0) {
         setTournamentId(data[0].id);
       }
     } catch (error) {
-      console.error('Error fetching tournaments:', error.message);
+      console.error('Error mengambil data turnamen:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -179,8 +183,16 @@ export default function MatchSchedulesTab({ tournamentName }) {
     
     try {
         const combinedDateTime = `${matchDate}T${matchTime}:00`;
-  
-        
+
+        // Log untuk memeriksa nilai tournamentId
+
+        // Validasi untuk memastikan tournamentId tidak kosong
+        if (!tournamentId) {
+            setInfoMessage('Silakan pilih turnamen sebelum menyimpan jadwal.');
+            setShowInfoPopup(true);
+            return;
+        }
+
         const { data, error } = await supabase
             .from('match_schedules')
             .insert([
@@ -428,8 +440,17 @@ export default function MatchSchedulesTab({ tournamentName }) {
 
   const handleTournamentChange = (e) => {
     const tournamentName = e.target.value;
-    setSelectedTournament(tournamentName);
-    fetchTeams(tournamentName);
+    
+    // Mencari tournament_id berdasarkan tournament_name
+    const selectedTournament = tournaments.find(tournament => tournament.name === tournamentName);
+    
+    if (selectedTournament) {
+        setTournamentId(selectedTournament.id); // Set tournamentId dengan id yang ditemukan
+        setSelectedTournament(tournamentName);
+        fetchTeams(tournamentName);
+    } else {
+        console.error('Tournament not found');
+    }
   };
 
   // Filter tim untuk tim 2
@@ -852,7 +873,7 @@ export default function MatchSchedulesTab({ tournamentName }) {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap border border-gray-200 text-center">
-                    {new Date(match.match_date).toLocaleString('id-ID')}
+                    {new Date(new Date(match.match_date).getTime() - 7 * 60 * 60 * 1000).toLocaleString('id-ID')}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap border border-gray-200 text-center">
                     <span className={`px-2 py-1 text-xs font-semibold rounded-full ${

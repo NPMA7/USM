@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { createClient } from '@supabase/supabase-js';
+import LoadingState from '@/components/payment/LoadingState'; // Import komponen LoadingState
 
 // Inisialisasi Supabase client
 const supabase = createClient(
@@ -13,6 +14,7 @@ const TournamentsTab = ({ tournaments, transactions }) => {
   const [teamDetails, setTeamDetails] = useState([]);
   const [selectedTeamDetails, setSelectedTeamDetails] = useState(null);
   const [showTeamDetailsModal, setShowTeamDetailsModal] = useState(false);
+  const [loading, setLoading] = useState(true); // State untuk loading
 
   const handleViewTeamDetails = (teamDetail) => {
     setSelectedTeamDetails(teamDetail);
@@ -31,9 +33,17 @@ const TournamentsTab = ({ tournaments, transactions }) => {
     }
   };
 
+  
   useEffect(() => {
     // Ambil data awal
-    fetchTeamDetails();
+    const fetchData = async () => {
+      setLoading(true); // Set loading menjadi true saat memulai fetch
+        await fetchTeamDetails();
+      setLoading(false); // Set loading menjadi false setelah fetch selesai
+    };
+
+    fetchData();
+
 
     // Set interval untuk memeriksa status setiap 5 detik
     const intervalId = setInterval(() => {
@@ -47,22 +57,25 @@ const TournamentsTab = ({ tournaments, transactions }) => {
   return (
     <div className=''>
       <h2 className="text-xl font-semibold mb-4">Turnamen yang Diikuti</h2>
-      {tournaments.length > 0 ? (
+      {loading ? ( // Tampilkan komponen LoadingState saat memuat
+        <LoadingState />
+      ) : tournaments.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {tournaments.map((tournament, index) => {
             const latestTransaction = transactions
-              .filter(t => t.tournament === tournament)
+              .filter(t => t.tournament_name === tournament.name) // Pastikan menggunakan kolom yang benar
               .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
 
-            const teamDetail = teamDetails.find(team => team.order_id === latestTransaction.order_id);
+            const teamDetail = teamDetails.find(team => team.order_id === latestTransaction?.order_id);
             
             return (
               <div key={index} className="bg-white border rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow">
                 <div className={`h-24 bg-blue-600 relative`}>
-                  <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
                     <h3 className="text-xl font-bold text-white">
-                      {tournament}
+                      {tournament.name ? tournament.name : 'Nama Turnamen Tidak Tersedia'}
                     </h3>
+                    <p className="text-white text-sm"> {tournament.game} </p>
                   </div>
                 </div>
                 <div className="p-4">
@@ -74,25 +87,22 @@ const TournamentsTab = ({ tournaments, transactions }) => {
                     <p className="text-gray-500 text-sm">Status Pendaftaran</p>
                     <span
                       className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        latestTransaction.transaction_status === 'settlement'
+                        latestTransaction && latestTransaction.transaction_status === 'settlement'
                           ? 'bg-green-100 text-green-800'
-                          : latestTransaction.transaction_status === 'pending'
-                          ? 'bg-yellow-100 text-yellow-800'
-                          : 'bg-red-100 text-red-800'
+                          : 'bg-gray-100 text-gray-500'
                       }`}
                     >
-                      {latestTransaction.transaction_status === 'settlement' ? 'Terdaftar' : 
-                       latestTransaction.transaction_status === 'pending' ? 'Menunggu Pembayaran' : 'Gagal'}
+                      {latestTransaction && latestTransaction.transaction_status === 'settlement' ? 'Terdaftar' : 'Tidak ada transaksi'}
                     </span>
                   </div>
                   <div className="mb-3">
                     <p className="text-gray-500 text-sm">Tanggal Pendaftaran</p>
                     <p className="text-gray-700">
-                      {new Date(latestTransaction.created_at).toLocaleDateString('id-ID', {
+                      {latestTransaction ? new Date(latestTransaction.created_at).toLocaleDateString('id-ID', {
                         day: 'numeric',
                         month: 'long',
                         year: 'numeric'
-                      })}
+                      }) : 'Tidak ada tanggal'}
                     </p>
                   </div>
                   <div className="mb-3">

@@ -1,4 +1,74 @@
-const SchedulesTab = ({ matchSchedules, userTeamId, userTeamName, refreshSchedules }) => {
+'use client'
+import { useEffect, useState } from 'react';
+import { createClient } from '@supabase/supabase-js';
+import LoadingState from '@/components/payment/LoadingState'; // Import komponen LoadingState
+
+// Inisialisasi Supabase client
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+);
+
+const SchedulesTab = ({ transactions  }) => {
+  const [teamDetails, setTeamDetails] = useState([]);
+  const [matchSchedulesData, setMatchSchedulesData] = useState([]);
+  const [loading, setLoading] = useState(true); // State untuk loading
+  const tournaments = [...new Set(transactions.map(t => t.tournament))];
+
+  const getTeamName = (latestTransaction) => {
+    const teamDetail = teamDetails.find(team => team.order_id === latestTransaction.order_id);
+    return teamDetail?.team_name || 'Tidak tersedia';
+  };
+
+  const fetchTeamDetails = async () => {
+    const { data, error } = await supabase
+      .from('team_details')
+      .select('*'); // Ambil semua kolom dari tabel team_details
+
+    if (error) {
+      console.error('Error fetching team details:', error);
+    } else {
+      setTeamDetails(data);
+    }
+  };
+
+  const fetchMatchSchedules = async () => {
+    const { data, error } = await supabase
+      .from('match_schedules')
+      .select(`
+        *,
+        tournaments (name, game),
+        team1:team1_id (team_name),
+        team2:team2_id (team_name)
+      `);
+
+    if (error) {
+      console.error('Error fetching match schedules:', error);
+    } else {
+      setMatchSchedulesData(data);
+    }
+  };
+
+  useEffect(() => {
+    // Ambil data awal
+    const fetchData = async () => {
+      setLoading(true); // Set loading menjadi true saat memulai fetch
+      await fetchTeamDetails();
+      await fetchMatchSchedules();
+      setLoading(false); // Set loading menjadi false setelah fetch selesai
+    };
+
+    fetchData();
+
+    // Set interval untuk memeriksa status setiap 5 detik
+    const intervalId = setInterval(() => {
+      fetchMatchSchedules(); // Hanya memanggil fetchMatchSchedules untuk memperbarui data
+    }, 5000); // 5000 ms = 5 detik
+
+    // Bersihkan interval saat komponen unmount
+    return () => clearInterval(intervalId);
+  }, []);
+
   const getStatusLabel = (status) => {
     switch (status) {
       case 'upcoming':
@@ -15,7 +85,7 @@ const SchedulesTab = ({ matchSchedules, userTeamId, userTeamName, refreshSchedul
   const getStatusClass = (status) => {
     switch (status) {
       case 'upcoming':
-        return 'bg-blue-200 text-blue-900 font-bold';
+        return 'bg-blue-300 text-blue-800';
       case 'ongoing':
         return 'bg-yellow-100 text-yellow-800';
       case 'completed':
@@ -25,50 +95,38 @@ const SchedulesTab = ({ matchSchedules, userTeamId, userTeamName, refreshSchedul
     }
   };
 
-  const getMatchClass = (match) => {
-    if (match.team1_score == null || match.team2_score == null) {
-      return 'bg-blue-100 text-blue-800';
-    } else if (match.winning_team_name === userTeamName) {
-      return 'bg-green-100 text-green-800';
-    } else if (match.winning_team_name !== null) {
-      return 'bg-red-100 text-red-800';
-    } else {
-      return 'bg-blue-100 text-blue-800';
-    }
-  };
-
   return (
     <div className="p-4 bg-gray-50 rounded-lg shadow-md">
       <h2 className="text-2xl font-semibold mb-4">Jadwal Pertandingan</h2>
-      <button 
-        onClick={refreshSchedules} 
-        className="mb-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center"
-      >
-        <svg className="h-5 w-5 mr-2 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <circle className="opacity-25" cx="12" cy="12" r="10" strokeWidth="4" />
-          <path className="opacity-75" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v8l4 4M4 12a8 8 0 018-8m0 16a8 8 0 01-8-8" />
-        </svg>
-        Refresh Jadwal
-      </button>
-      {matchSchedules.length > 0 ? (
-        <div className="space-y-4">
-          {matchSchedules.map((match, index) => {
-            const isUserTeam1 = match.team1_id === userTeamId;
-            return (
-              
-              <div key={index} className={`bg-white border rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow ${getMatchClass(match)}`}>
+      {loading ? ( // Tampilkan loading state
+        <LoadingState />
+      ) : tournaments.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {tournaments.map((tournament) => {
+            const latestTransaction = transactions
+              .filter(t => t.tournament === tournament)
+              .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
+
+            const teamName = getTeamName(latestTransaction);
+
+            const getMatchClass = (match) => {
+              return match.winning_team_name === teamName ? 'bg-green-100 text-green-800' : (match.winning_team_name ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800');
+            };
+            return matchSchedulesData
+              .filter(match => match.team1?.team_name === teamName || match.team2?.team_name === teamName)
+              .map((match) => (
+                <div key={match.id}>
+                <div className={`bg-white border rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow ${getMatchClass(match)}`}>
                  <div className="relative">
-                  {match.winning_team_name === userTeamName && (
+                  {match.winning_team_name === teamName ? (
                     <div className="absolute top-10 -left-14 w-full text-center transform translate-x-1/2 rotate-45 bg-green-500 text-white px-2 py-1 text-4xl font-bold">
                       Menang
                     </div>
-                    
-                  )}
-                  {match.winning_team_name !== userTeamName && (
+                  ) : match.losing_team_name === teamName ? (
                     <div className="absolute top-10 -left-14 w-full text-center transform translate-x-1/2 rotate-45 bg-red-500 text-white px-2 py-1 text-4xl font-bold">
                       Kalah
                     </div>
-                  )}
+                  ) : null}
                 </div>
                 <div className={`p-4 ${getMatchClass(match)}`}>
                   <div className="flex flex-col md:flex-row md:items-center justify-between">
@@ -76,9 +134,9 @@ const SchedulesTab = ({ matchSchedules, userTeamId, userTeamName, refreshSchedul
                       <span className={`px-4 py-2 text-xs font-semibold rounded-full ${getStatusClass(match.status)}`}>
                         {getStatusLabel(match.status)}
                       </span>
-                      <h3 className="text-lg font-bold mt-2">{match.tournament_name}</h3>
-                      <p className="text-gray-600">Game: {match.game_type}</p>
-                      <p className="text-gray-600">{match.round_name || 'Round Unknown'}</p>
+                      <h3 className="text-lg font-bold mt-2">Turnamen: {match.tournaments?.name}</h3>
+                      <p className="text-gray-600">Game: {match.tournaments?.game}</p>
+                      <p className="text-gray-600">{match.round || 'Round Unknown'}</p>
                     </div>
                     <div className="text-right">
                       <p className="text-sm text-gray-500">
@@ -98,13 +156,15 @@ const SchedulesTab = ({ matchSchedules, userTeamId, userTeamName, refreshSchedul
                   </div>
                   
                   <div className="mt-4 flex items-center justify-between bg-gray-100 p-4 rounded-lg">
-                    {isUserTeam1 ? (
+                    {match.team1?.team_name  === teamName ? (
                       <>
                         <div className="text-center flex-1">
-                          <p className="font-bold text-lg">{match.team1_name || 'TBD'}</p>
+                          <p className="font-bold text-lg">{match.team1?.team_name || 'TBD'}</p>
                           <p className="text-sm text-gray-500">Tim Anda</p>
-                          {match.status === 'completed' && (
-                            <p className="text-2xl font-bold mt-2">{match.team1_score || '0'}</p>
+                          {match.status === 'completed' ? (
+                            <p className="text-2xl font-bold mt-2">{match.team1_score || '0'} </p>
+                          ) : (
+                            <p className="text-2xl mt-2 text-gray-500">0</p>
                           )}
                         </div>
                         
@@ -113,20 +173,24 @@ const SchedulesTab = ({ matchSchedules, userTeamId, userTeamName, refreshSchedul
                         </div>
                         
                         <div className="text-center flex-1">
-                          <p className="font-bold text-lg">{match.team2_name || 'TBD'}</p>
+                          <p className="font-bold text-lg">{match.team2?.team_name || 'TBD'}</p>
                           <p className="text-sm text-gray-500">Lawan</p>
-                          {match.status === 'completed' && (
+                          {match.status === 'completed' ? (
                             <p className="text-2xl font-bold mt-2">{match.team2_score || '0'}</p>
+                          ) : (
+                            <p className="text-2xl mt-2 text-gray-500">0</p>
                           )}
                         </div>
                       </>
                     ) : (
                       <>
                         <div className="text-center flex-1">
-                          <p className="font-bold text-lg">{match.team2_name || 'TBD'}</p>
+                          <p className="font-bold text-lg">{match.team2?.team_name  || 'TBD'}</p>
                           <p className="text-sm text-gray-500">Tim Anda</p>
-                          {match.status === 'completed' && (
-                            <p className="text-2xl font-bold mt-2">{match.team2_score || '0'}</p>
+                          {match.status === 'completed' ? (
+                            <p className="text-2xl font-bold mt-2">{match.team2_score || '0'} </p>
+                          ) : (
+                            <p className="text-2xl mt-2 text-gray-500">0</p>
                           )}
                         </div>
                         
@@ -135,37 +199,33 @@ const SchedulesTab = ({ matchSchedules, userTeamId, userTeamName, refreshSchedul
                         </div>
                         
                         <div className="text-center flex-1">
-                          <p className="font-bold text-lg">{match.team1_name || 'TBD'}</p>
+                          <p className="font-bold text-lg">{match.team1?.team_name  || 'TBD'}</p>
                           <p className="text-sm text-gray-500">Lawan</p>
-                          {match.status === 'completed' && (
+                          {match.status === 'completed' ? (
                             <p className="text-2xl font-bold mt-2">{match.team1_score || '0'}</p>
+                          ) : (
+                            <p className="text-2xl mt-2 text-gray-500">0</p>
                           )}
                         </div>
                       </>
                     )}
                   </div>
-                  <p className={`text-sm mt-2 ${getMatchClass(match)}`}>
-                    {match.team1_score == null || match.team2_score == null ? (
-                      'Hasil: Sedang dihitung'
-                    ) : (
-                      `Hasil: ${match.winning_team_name === userTeamName ? `Tim Anda menang` : `Tim Anda kalah`}`
-                    )}
+                  <p className="text-sm text-gray-500 mt-2">
+                    Hasil: {match.winning_team_name ? (match.winning_team_name === teamName ? `Tim Anda menang` : `Tim Anda kalah`) : 'Belum ada hasil'}
                   </p>
 
                 </div>
-               
-              </div>
-            );
+                </div>
+                </div>
+              ));
           })}
         </div>
       ) : (
         <div className="text-center py-8 bg-gray-50 rounded-lg">
-          <p className="text-gray-500">Belum ada jadwal pertandingan</p>
-          <p className="text-sm text-gray-400 mt-2">
-            Jadwal akan muncul setelah tim Anda terdaftar dan bracket turnamen dibuat
-          </p>
+          <p className="text-gray-500">Tidak ada jadwal pertandingan yang tersedia.</p>
         </div>
       )}
+
     </div>
   );
 };

@@ -126,7 +126,6 @@ export default function Home() {
 
     // Kirimkan nama turnamen ke form registrasi
     setTournamentName(selectedTournament.name);
-    console.log("Selected Tournament Name:", selectedTournament.name); // Log nama turnamen yang dipilih
   };
 
   // Fungsi untuk memeriksa ketersediaan nomor WhatsApp
@@ -330,7 +329,6 @@ export default function Home() {
       return;
     }
 
-    console.log("Tournament Name for Payment:", tournamentName); // Log nama turnamen yang digunakan untuk pembayaran
 
     const alreadyRegistered = await checkUserRegistration(userData, tournamentName);
     if (alreadyRegistered) {
@@ -631,7 +629,6 @@ export default function Home() {
   // Fungsi untuk memeriksa apakah pengguna sudah mendaftar untuk turnamen tertentu
   const checkUserRegistration = async (userData, tournamentName) => {
     try {
-      console.log("Checking registration for:", userData.email, "Tournament Name:", tournamentName); // Log email dan nama turnamen
       const { data, error } = await supabase
         .from('transactions')
         .select('*')
@@ -644,7 +641,6 @@ export default function Home() {
         return false;
       }
 
-      console.log("Registration data found:", data); // Log data yang ditemukan
       return data && data.length > 0; // Mengembalikan true jika ada data
     } catch (error) {
       console.error('Error:', error);

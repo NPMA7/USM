@@ -145,7 +145,6 @@ const handleChatCS = () => {
   const handleSubmitForm = async () => {
     if (teamDetailsValid) {
       // Kirim data transaksi dan detail tim
-      console.log("Tournament Name for Registration:", tournamentName); // Log nama turnamen yang digunakan untuk pendaftaran
       const isRegistered = await checkUserRegistration(userData, tournamentName);
       if (isRegistered) {
         alert("Anda sudah mendaftarkan tim untuk turnamen ini. Satu pengguna hanya dapat mendaftarkan satu tim per turnamen.");
